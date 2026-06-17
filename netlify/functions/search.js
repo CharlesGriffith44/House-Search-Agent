@@ -6,9 +6,6 @@ exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body);
 
-    // Step 1: let Claude search the web for real listings using the web_search tool.
-    // We give it generous max_tokens since search results + reasoning + extraction
-    // all consume tokens before the final structured answer is produced.
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -17,16 +14,9 @@ exports.handler = async function (event) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 4000,
+        model: "claude-sonnet-4-6",
+        max_tokens: 1200,
         messages: body.messages,
-        tools: [
-          {
-            type: "web_search_20250305",
-            name: "web_search",
-            max_uses: body.maxSearches || 8,
-          },
-        ],
       }),
     });
 
