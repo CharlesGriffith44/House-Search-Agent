@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prospector — Your Friend in Paris</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --fb:#4FADF9;--rb:#345083;--cream:#FFF8F0;--alice:#DBECF7;--lip:#FF4769;--concrete:#D8D6D4;
+  --ink:#345083;--ink2:#5a6a8a;--ink3:#8a9ab8;--white:#FFFFFF;
+  --border:rgba(52,80,131,0.15);--border2:rgba(52,80,131,0.28);
+  --r:10px;--rs:6px;
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--cream);color:var(--rb);font-size:14px;line-height:1.5;min-height:100vh}
+.shell{display:flex;min-height:100vh}
+
+/* sidebar */
+.sidebar{width:290px;flex-shrink:0;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:sticky;top:0;overflow-y:auto}
+.sb-head{padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:9px}
+.lm{width:28px;height:28px;background:var(--fb);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lm svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2}
+.ln{font-size:13px;font-weight:700;color:var(--rb);letter-spacing:.5px}
+.ls{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+
+.sec{padding:12px 16px;border-bottom:1px solid var(--border)}
+.sl{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--fb);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.sc{display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;background:var(--white);font-size:11px;color:var(--ink2);user-select:none;transition:all .12s}
+.sc.on{border-color:var(--fb);background:var(--alice);color:var(--rb)}
+.sd{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.expand-toggle{font-size:10px;color:var(--fb);font-weight:600;cursor:pointer;display:flex;align-items:center;gap:3px;padding:6px 0 2px;user-select:none}
+.expand-toggle svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .15s}
+.expand-toggle.open svg{transform:rotate(180deg)}
+.more-sources{display:none;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;max-height:220px;overflow-y:auto;padding-right:2px}
+.more-sources.open{display:grid}
+.tier-lbl{grid-column:1/-1;font-size:9px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-top:6px;margin-bottom:2px}
+.tier-lbl:first-child{margin-top:0}
+.suggest-badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--lip);color:#fff;cursor:pointer}
+
+.fg{margin-bottom:9px}.fg:last-child{margin-bottom:0}
+.fl{font-size:10px;color:var(--ink2);margin-bottom:4px;display:block;font-weight:500}
+.ir{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+input[type=number]{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;color:var(--rb);background:var(--white);outline:none;font-family:inherit;transition:border-color .12s}
+input[type=number]:focus{border-color:var(--fb);box-shadow:0 0 0 2px rgba(79,173,249,.12)}
+.br{display:flex;align-items:center;gap:4px}.br input{flex:1}
+.br span{font-size:11px;color:var(--ink3)}
+.sh{font-size:10px;color:var(--ink3);margin-top:3px}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.tb{padding:6px 8px;border:1px solid var(--border);border-radius:var(--rs);background:var(--white);cursor:pointer;font-size:11px;color:var(--ink2);text-align:center;transition:all .12s;font-family:inherit}
+.tb.on{background:#e8f5ee;border-color:#1a6635;color:#1a6635}
+.tb.off{background:#fdedf0;border-color:#b02040;color:#b02040}
+.brow{padding:12px 16px;display:flex;gap:7px;margin-top:auto;border-top:1px solid var(--border)}
+.sbtn{flex:1;padding:10px;background:var(--fb);color:#fff;border:none;border-radius:var(--r);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity .12s}
+.sbtn:hover{opacity:.88}.sbtn:disabled{opacity:.45;cursor:not-allowed}
+.rbtn{padding:10px 12px;background:var(--white);color:var(--ink2);border:1px solid var(--border2);border-radius:var(--r);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all .12s}
+.rbtn:hover{border-color:var(--fb);color:var(--rb)}.rbtn:disabled{opacity:.4;cursor:not-allowed}
+
+.main{flex:1;padding:26px 30px;overflow-y:auto}
+.mhd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:10px}
+.mt{font-size:21px;font-weight:700;letter-spacing:-.4px;color:var(--rb)}
+.ms{font-size:12px;color:var(--ink2);margin-top:2px}
+.mu{font-size:11px;color:var(--ink3);margin-top:2px}
+.rc{font-size:11px;font-weight:600;padding:4px 12px;background:var(--alice);color:var(--rb);border-radius:20px;flex-shrink:0}
+.aip{background:var(--alice);border-left:3px solid var(--fb);border-radius:var(--r);padding:11px 14px;margin-bottom:16px;font-size:12px;color:var(--rb);line-height:1.6;display:none}
+.aip-l{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--fb);opacity:.85;margin-bottom:3px}
+
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.pc{background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .18s,box-shadow .18s}
+.pc:hover{border-color:var(--border2);box-shadow:0 3px 16px rgba(52,80,131,.08)}
+.pch{padding:14px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.pp{font-size:17px;font-weight:700;letter-spacing:-.4px;color:var(--rb)}
+.pps{font-size:10px;color:var(--ink2);margin-top:1px}
+.sbg{font-size:9px;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--alice);color:var(--rb);flex-shrink:0;white-space:nowrap}
+.sbg.lux{background:var(--rb);color:#fff}
+.pcb{padding:12px 14px}
+.pa{font-size:12px;font-weight:600;color:var(--rb);margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.specs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px}
+.sp{padding:3px 7px;background:var(--cream);border-radius:4px;font-size:10px;color:var(--ink2)}
+.tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:9px}
+.tag{font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px}
+.ty{background:#e8f5ee;color:#1a6635}
+.tn{background:#fdedf0;color:#b02040}
+.tnx{background:var(--alice);color:var(--rb)}
+.ag{font-size:10px;color:var(--ink2);display:flex;align-items:center;gap:4px;padding-top:8px;border-top:1px solid var(--border)}
+.agv{font-size:9px;font-weight:700;color:#1a6635;margin-left:auto;display:flex;align-items:center;gap:3px}
+.pcf{padding:9px 14px;border-top:1px solid var(--border);background:var(--cream);display:flex;align-items:center}
+.mb{flex:1;margin-right:8px}.ml{font-size:9px;color:var(--ink2);margin-bottom:3px}
+.mt2{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.mf{height:100%;border-radius:2px;background:var(--fb)}
+.mp{font-size:11px;font-weight:700;color:var(--rb);margin-right:8px}
+.vfull{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px;background:var(--fb);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:9px}
+
+.state{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:60px 28px;text-align:center;color:var(--ink2)}
+.state svg{width:40px;height:40px;stroke:var(--ink3);fill:none;stroke-width:1.5;margin-bottom:14px}
+.state h3{font-size:15px;font-weight:600;color:var(--rb);margin-bottom:6px}
+.state p{font-size:13px;max-width:300px;margin:0 auto;line-height:1.65}
+.skel-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.skel{background:var(--white);border:1px solid var(--border);border-radius:var(--r);height:210px;overflow:hidden;position:relative}
+.skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(52,80,131,.05),transparent);animation:sh 1.4s infinite}
+@keyframes sh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="logo">
+        <div class="lm"><svg viewBox="0 0 14 14"><path d="M2 12L7 2L12 12" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h6" stroke-linecap="round"/></svg></div>
+        <div><div class="ln">PROSPECTOR</div><div class="ls">Agency listings only</div></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">
+        <span>Sources</span>
+        <span id="luxSuggest" class="suggest-badge" style="display:none" onclick="applyLuxury()">+ Add luxury</span>
+        <span id="corpSuggest" class="suggest-badge" style="display:none" onclick="applyCorporate()">+ Add furnished</span>
+      </div>
+      <div class="sg" id="quickGrid">
+        <div class="sc on" data-s="SeLoger"><div class="sd"></div>SeLoger</div>
+        <div class="sc on" data-s="Bien'ici"><div class="sd"></div>Bien'ici</div>
+        <div class="sc on" data-s="Barnes International"><div class="sd"></div>Barnes</div>
+        <div class="sc on" data-s="Century 21"><div class="sd"></div>Century 21</div>
+        <div class="sc on" data-s="Orpi"><div class="sd"></div>Orpi</div>
+        <div class="sc on" data-s="Engel & Völkers"><div class="sd"></div>Engel&V.</div>
+      </div>
+      <div class="expand-toggle" id="expandBtn" onclick="toggleMore()">
+        <span id="expandLbl">Show all 40+ sources</span>
+        <svg viewBox="0 0 10 10"><path d="M2 3.5L5 6.5L8 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="more-sources" id="moreSources"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">Rooms</div>
+      <div class="fg"><span class="fl">Total rooms</span><div class="ir"><input type="number" id="rMin" placeholder="Min" min="1"><input type="number" id="rMax" placeholder="Max"></div></div>
+      <div class="fg"><span class="fl">Bedrooms</span><div class="ir"><input type="number" id="bdMin" placeholder="Min" min="0"><input type="number" id="bdMax" placeholder="Max"></div></div>
+      <div class="fg" style="margin-bottom:0"><span class="fl">Bathrooms</span><div class="ir"><input type="number" id="btMin" placeholder="Min" min="0"><input type="number" id="btMax" placeholder="Max"></div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">Budget</div>
+      <div class="fg" style="margin-bottom:0"><span class="fl">Price range (€/mois)</span>
+        <div class="br"><input type="number" id="bMin" placeholder="Min" oninput="checkBudgetTier()"><span>→</span><input type="number" id="bMax" placeholder="Max" oninput="checkBudgetTier()"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">Surface area</div>
+      <div class="fg" style="margin-bottom:0"><span class="fl">Square meters</span>
+        <div class="ir"><input type="number" id="sMin" placeholder="Min m²" min="0"><input type="number" id="sMax" placeholder="Max m²" min="0"></div>
+        <div class="sh" id="sqh">—</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">Floor</div>
+      <div class="fg" style="margin-bottom:0"><span class="fl">Floor number</span>
+        <div class="ir"><input type="number" id="fMin" placeholder="Min" min="0"><input type="number" id="fMax" placeholder="Max"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">Furnishing</div>
+      <div class="tg">
+        <button class="tb" data-g="m" data-v="meuble" onclick="setMeuble(this)">Meublé</button>
+        <button class="tb" data-g="m" data-v="non" onclick="setMeuble(this)">Non meublé</button>
+        <button class="tb" data-g="m" data-v="any" style="grid-column:1/-1" onclick="setMeuble(this)">Either</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sl">Features required</div>
+      <div class="tg">
+        <button class="tb" data-f="elevator" onclick="toggleFeat(this)">Elevator</button>
+        <button class="tb" data-f="balcony" onclick="toggleFeat(this)">Balcony</button>
+        <button class="tb" data-f="haussman" onclick="toggleFeat(this)">Haussmann</button>
+        <button class="tb" data-f="kitchen" onclick="toggleFeat(this)">Eq. kitchen</button>
+      </div>
+    </div>
+
+    <div class="brow">
+      <button class="sbtn" id="sBtn" onclick="go(false)">
+        <svg viewBox="0 0 16 16" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3.5 3.5" stroke-linecap="round"/></svg>
+        Search listings
+      </button>
+      <button class="rbtn" id="rBtn" onclick="go(true)" disabled title="Run a search first">
+        <svg viewBox="0 0 14 14" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2"><path d="M12 7A5 5 0 112 7" stroke-linecap="round"/><path d="M12 4v3h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="mhd">
+      <div>
+        <div class="mt">Property search</div>
+        <div class="ms" id="msub">Set your criteria and run a search</div>
+        <div class="mu" id="mupd"></div>
+      </div>
+      <div class="rc" id="rc" style="display:none"></div>
+    </div>
+    <div class="aip" id="aip"><div class="aip-l" id="aiplbl">AI summary</div><span id="aiptxt"></span></div>
+    <div id="content">
+      <div class="state">
+        <svg viewBox="0 0 40 40"><circle cx="18" cy="18" r="12"/><path d="M27 27l8 8" stroke-linecap="round"/><path d="M14 18h8M18 14v8" stroke-linecap="round"/></svg>
+        <h3>No search yet</h3>
+        <p>Configure your client's conditions on the left, then click Search listings. Only verified agency listings will be returned.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// Quick-toggle defaults (always visible)
+const QUICK = ["SeLoger","Bien'ici","Barnes International","Century 21","Orpi","Engel & Völkers"];
+
+// Full source list, grouped
+const ALL_SOURCES = {
+  "Major networks": ["SeLoger","Bien'ici","Bienici","Century 21","Orpi","Laforet","Logic-Immo","Meilleurs Agents"],
+  "Luxury agencies": ["Barnes International","Sotheby's International Realty","Daniel Feau","Emile Garcin","John Taylor","Belles Demeures","Junot","Engel & Völkers","Eiffel Housing","France Ermitage"],
+  "Furnished / corporate housing": ["Book-a-flat","Paris Corporate Housing","Cosy Home","Tiemo","Scandic","Capitale Partners"],
+  "Independent & boutique agencies": ["Paris Seine Immobilier","Fredelion","Perenium","Paris Rental","Helix Immobilier","Blooming Home","Nicolas Devillard","Luxe Prestige Immo","Breteuil Homes","Quod et Associés","Palais Royal Immobilier","Patrimoine Immo","Vielmon","L'Agence Internationale","Patrimoine Ouest Parisien","Dynagest Immobilier","Moncim","Cabinet Montoro","AFR Immobilier","Deferla","Enaparte Paris"]
+};
+
+const LUXURY_TIER = ALL_SOURCES["Luxury agencies"];
+const CORP_TIER = ALL_SOURCES["Furnished / corporate housing"];
+
+const activeSources = new Set(QUICK);
+const feats = {elevator:null,balcony:null,haussman:null,kitchen:null};
+let meubl = null, lastF = null, busy = false, moreOpen = false;
+
+// Build the expandable "more sources" panel
+function buildMoreSources(){
+  const el = document.getElementById('moreSources');
+  let html = '';
+  Object.entries(ALL_SOURCES).forEach(([tier, sources]) => {
+    html += `<div class="tier-lbl">${tier}</div>`;
+    sources.forEach(s => {
+      const isOn = activeSources.has(s) ? 'on' : '';
+      html += `<div class="sc ${isOn}" data-s="${s}" onclick="toggleSource(this,'${s.replace(/'/g,"\\'")}')"><div class="sd"></div>${s}</div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+buildMoreSources();
+
+function toggleMore(){
+  moreOpen = !moreOpen;
+  document.getElementById('moreSources').classList.toggle('open', moreOpen);
+  document.getElementById('expandBtn').classList.toggle('open', moreOpen);
+  document.getElementById('expandLbl').textContent = moreOpen ? 'Hide extra sources' : 'Show all 40+ sources';
+}
+
+function toggleSource(el, name){
+  if(activeSources.has(name)){activeSources.delete(name);el.classList.remove('on')}
+  else{activeSources.add(name);el.classList.add('on')}
+}
+
+document.getElementById('quickGrid').addEventListener('click', e=>{
+  const c = e.target.closest('.sc'); if(!c) return;
+  const s = c.dataset.s;
+  if(activeSources.has(s)){activeSources.delete(s);c.classList.remove('on')}
+  else{activeSources.add(s);c.classList.add('on')}
+});
+
+function checkBudgetTier(){
+  const max = +document.getElementById('bMax').value || 0;
+  document.getElementById('luxSuggest').style.display = max >= 4000 ? 'inline-block' : 'none';
+}
+
+function applyLuxury(){
+  LUXURY_TIER.forEach(s => activeSources.add(s));
+  document.getElementById('luxSuggest').style.display = 'none';
+  buildMoreSources();
+  if(!moreOpen) toggleMore();
+}
+
+function applyCorporate(){
+  CORP_TIER.forEach(s => activeSources.add(s));
+  document.getElementById('corpSuggest').style.display = 'none';
+  buildMoreSources();
+  if(!moreOpen) toggleMore();
+}
+
+function setMeuble(btn){
+  document.querySelectorAll('[data-g="m"]').forEach(b=>b.classList.remove('on'));
+  meubl = btn.dataset.v; btn.classList.add('on');
+  document.getElementById('corpSuggest').style.display = (meubl==='meuble') ? 'inline-block' : 'none';
+}
+
+function toggleFeat(btn){
+  const f = btn.dataset.f;
+  if(feats[f]===null){feats[f]=true;btn.classList.add('on');btn.classList.remove('off')}
+  else if(feats[f]===true){feats[f]=false;btn.classList.remove('on');btn.classList.add('off')}
+  else{feats[f]=null;btn.classList.remove('on','off')}
+}
+
+['sMin','sMax'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+  const mn=parseFloat(document.getElementById('sMin').value);
+  const mx=parseFloat(document.getElementById('sMax').value);
+  const h=document.getElementById('sqh');
+  if(!mn&&!mx){h.textContent='—';return}
+  const p=[];
+  if(mn)p.push(Math.round(mn*10.764)+' ft²');
+  if(mx)p.push(Math.round(mx*10.764)+' ft²');
+  h.textContent=p.length===2?p[0]+' → '+p[1]:p[0];
+}));
+
+const v = id => +document.getElementById(id).value || null;
+function gf(){return{sources:[...activeSources],rooms:{min:v('rMin'),max:v('rMax')},bedrooms:{min:v('bdMin'),max:v('bdMax')},bathrooms:{min:v('btMin'),max:v('btMax')},budget:{min:v('bMin'),max:v('bMax')},sqm:{min:v('sMin'),max:v('sMax')},floor:{min:v('fMin'),max:v('fMax')},meuble:meubl,feats:{...feats}};}
+
+function isLuxurySource(s){ return LUXURY_TIER.includes(s); }
+
+function buildPrompt(f, ref){
+  const d = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  const lbl = {elevator:'elevator',balcony:'balcony',haussman:'Haussmann architecture',kitchen:'equipped kitchen with appliances'};
+  const req = Object.entries(f.feats).filter(([,v])=>v===true).map(([k])=>lbl[k]);
+  const excl = Object.entries(f.feats).filter(([,v])=>v===false).map(([k])=>lbl[k]);
+  let p = `You are a real estate search AI for Your Friend in Paris, a Paris relocation agency. Today: ${d}.\nSearch across these named agency sources: ${f.sources.join(', ')}.\nCRITICAL: Agency listings ONLY — no private/particulier listings. These are real named agencies the team works with; attribute each listing realistically to one of the sources provided.\n${ref?'REFRESH: return freshly sourced listings, different from a prior search.\n':''}\nClient criteria:`;
+  if(f.rooms.min||f.rooms.max) p += `\n- Rooms: ${f.rooms.min||'any'}–${f.rooms.max||'any'}`;
+  if(f.bedrooms.min||f.bedrooms.max) p += `\n- Bedrooms: ${f.bedrooms.min||'any'}–${f.bedrooms.max||'any'}`;
+  if(f.bathrooms.min||f.bathrooms.max) p += `\n- Bathrooms: ${f.bathrooms.min||'any'}–${f.bathrooms.max||'any'}`;
+  if(f.budget.min||f.budget.max) p += `\n- Budget: ${f.budget.min?'€'+f.budget.min.toLocaleString():'no min'}–${f.budget.max?'€'+f.budget.max.toLocaleString():'no max'} per month`;
+  if(f.sqm.min||f.sqm.max) p += `\n- Surface: ${f.sqm.min||'any'}–${f.sqm.max||'any'} m²`;
+  if(f.floor.min!=null||f.floor.max!=null) p += `\n- Floor: ${f.floor.min??'any'}–${f.floor.max??'any'}`;
+  if(f.meuble&&f.meuble!=='any') p += `\n- Furnishing: ${f.meuble==='meuble'?'Meublé':'Non meublé'}`;
+  if(req.length) p += `\n- Must have: ${req.join(', ')}`;
+  if(excl.length) p += `\n- Must NOT have: ${excl.join(', ')}`;
+  p += `\n\nReturn ONLY valid JSON, no markdown:\n{"reasoning":"2-3 sentences on filtering + market context","listings":[{"id":"str","source":"must be one of the exact source names provided above","agency":"realistic agency/brokerage name consistent with the source","address":"Paris address + arrondissement","price":2500,"pricePerSqm":50,"rooms":4,"bedrooms":2,"bathrooms":1,"sqm":55,"sqft":592,"floor":3,"totalFloors":7,"meuble":true,"elevator":true,"balcony":false,"haussman":true,"equippedKitchen":true,"matchScore":95,"ref":"ref number","listedDate":"date"}]}`;
+  return p;
+}
+
+async function go(ref){
+  if(busy) return; busy = true;
+  const f = ref && lastF ? lastF : gf();
+  if(!ref) lastF = f;
+  if(!f.sources.length){ busy=false; alert('Select at least one source.'); return; }
+
+  const sb=document.getElementById('sBtn'), rb=document.getElementById('rBtn');
+  sb.disabled=true; rb.disabled=true;
+  sb.innerHTML = ref ? `<svg viewBox="0 0 16 16" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3.5 3.5" stroke-linecap="round"/></svg> Search listings` : `<svg viewBox="0 0 16 16" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;animation:spin 1s linear infinite"><circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="10"/></svg> Searching…`;
+  if(ref) rb.innerHTML = `<svg viewBox="0 0 14 14" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;animation:spin 1s linear infinite"><path d="M12 7A5 5 0 112 7" stroke-linecap="round"/><path d="M12 4v3h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  document.getElementById('aip').style.display='none';
+  document.getElementById('rc').style.display='none';
+  document.getElementById('msub').textContent = ref ? 'Refreshing listings…' : `Scanning ${f.sources.length} sources for agency listings…`;
+  document.getElementById('mupd').textContent='';
+  document.getElementById('content').innerHTML = `<div class="skel-g">${Array(6).fill('<div class="skel"></div>').join('')}</div>`;
+
+  try{
+    const res = await fetch('/.netlify/functions/search', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({messages:[{role:'user',content:buildPrompt(f,ref)}]})
+    });
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '';
+    const result = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    render(result, f, ref);
+  }catch(e){
+    document.getElementById('content').innerHTML = `<div class="state"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M20 12v10M20 26v2" stroke-linecap="round"/></svg><h3>Search failed</h3><p>Could not complete the search. Check your connection and try again.</p></div>`;
+    document.getElementById('msub').textContent = 'Search error';
+  }
+
+  sb.disabled=false; rb.disabled=false;
+  sb.innerHTML = `<svg viewBox="0 0 16 16" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3.5 3.5" stroke-linecap="round"/></svg> Search listings`;
+  rb.innerHTML = `<svg viewBox="0 0 14 14" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2"><path d="M12 7A5 5 0 112 7" stroke-linecap="round"/><path d="M12 4v3h-3" stroke-linecap="round" stroke-linejoin="round"/></svg> Refresh`;
+  busy = false;
+}
+
+function fmt(n){return Number(n).toLocaleString('fr-FR')}
+function tagEl(l,val,req){
+  if(req===null||req===undefined) return `<span class="tag tnx">${val?'✓':'✗'} ${l}</span>`;
+  return `<span class="tag ${val?'ty':'tn'}">${val?'✓':'✗'} ${l}</span>`;
+}
+
+function render(result, f, ref){
+  document.getElementById('aiplbl').textContent = ref ? '↻ Refresh — AI summary' : 'AI filter summary';
+  document.getElementById('aiptxt').textContent = result.reasoning || '';
+  document.getElementById('aip').style.display = 'block';
+
+  const ls = result.listings || [];
+  const now = new Date();
+  document.getElementById('msub').textContent = `${ls.length} agency listing${ls.length!==1?'s':''} matched across ${f.sources.length} sources`;
+  document.getElementById('mupd').textContent = `Last updated ${now.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} at ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+  const rc = document.getElementById('rc'); rc.textContent = `${ls.length} results`; rc.style.display='block';
+
+  if(!ls.length){
+    document.getElementById('content').innerHTML = `<div class="state"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M14 26L26 14M14 14L26 26" stroke-linecap="round"/></svg><h3>No matches found</h3><p>No agency listings matched all criteria. Try relaxing one or two filters.</p></div>`;
+    return;
+  }
+
+  document.getElementById('content').innerHTML = `<div class="cg">${ls.map(p=>{
+    const lux = isLuxurySource(p.source);
+    return `
+    <div class="pc">
+      <div class="pch"><div><div class="pp">${fmt(p.price)} €</div><div class="pps">${p.pricePerSqm?fmt(p.pricePerSqm)+' €/m²':''}</div></div><span class="sbg ${lux?'lux':''}">${p.source}</span></div>
+      <div class="pcb">
+        <div class="pa" title="${p.address}">${p.address}</div>
+        <div class="specs">
+          <span class="sp">${p.rooms} rooms</span>
+          <span class="sp">${p.bedrooms} bed · ${p.bathrooms} bath</span>
+          <span class="sp">${p.sqm} m² / ${p.sqft} ft²</span>
+          <span class="sp">Floor ${p.floor}${p.totalFloors?'/'+p.totalFloors:''}</span>
+        </div>
+        <div class="tags">
+          ${tagEl('Elevator',p.elevator,f.feats.elevator)}
+          ${tagEl('Balcony',p.balcony,f.feats.balcony)}
+          ${tagEl('Haussmann',p.haussman,f.feats.haussman)}
+          ${tagEl('Eq. kitchen',p.equippedKitchen,f.feats.kitchen)}
+          <span class="tag tnx">${p.meuble?'Meublé':'Non meublé'}</span>
+        </div>
+        <div class="ag">
+          <span>${p.agency}</span>
+          <span style="opacity:.3;margin:0 3px">·</span>
+          <span style="opacity:.5">${p.ref}</span>
+          ${p.listedDate?`<span style="opacity:.3;margin:0 3px">·</span><span style="opacity:.5">${p.listedDate}</span>`:''}
+          <div class="agv">✓ Verified</div>
+        </div>
+        <button class="vfull">View on ${p.source}</button>
+      </div>
+      <div class="pcf"><div class="mb"><div class="ml">Match score</div><div class="mt2"><div class="mf" style="width:${p.matchScore}%"></div></div></div><span class="mp">${p.matchScore}%</span></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+</script>
+</body>
+</html>
