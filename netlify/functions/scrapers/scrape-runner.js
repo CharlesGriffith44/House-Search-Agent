@@ -48,7 +48,11 @@ async function scrapeSource(sourceName) {
 
   try {
     const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(30000);
+    // Netlify's free/Personal plan caps function execution at 10 SECONDS
+    // total. Every timeout below was tightened specifically against that
+    // budget — these are NOT arbitrary; they're what's left after
+    // accounting for connect time (~1-2s) and extraction (~0.2s).
+    page.setDefaultNavigationTimeout(6000);
 
     try {
       await page.goto(config.url, { waitUntil: 'networkidle2' });
@@ -57,13 +61,14 @@ async function scrapeSource(sourceName) {
     }
 
     // Real sites (confirmed with Vielmon) can redirect/reload shortly
-    // after the initial load completes. Give it a moment to settle
-    // before reading anything from the DOM.
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // after the initial load completes. Original test used a 3s delay
+    // with no time pressure; tightened to 1s here since every second
+    // counts against Netlify's 10s function timeout.
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     if (config.waitForSelector) {
       try {
-        await page.waitForSelector(config.waitForSelector, { timeout: 15000 });
+        await page.waitForSelector(config.waitForSelector, { timeout: 3000 });
       } catch {
         // Not fatal — proceed and let extraction return an empty/partial
         // result rather than failing the whole source outright.
@@ -77,10 +82,11 @@ async function scrapeSource(sourceName) {
       listings = await runExtract();
     } catch (err) {
       if (err.message.includes('Execution context was destroyed')) {
-        // Page navigated again right as we tried to read it — wait a
-        // little longer and retry exactly once, same as the proven
-        // standalone test.
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Page navigated again right as we tried to read it. Original
+        // test used a 3s wait with no time pressure; tightened to 800ms
+        // here — by the time we hit this retry path we've likely already
+        // used 4-6s of the 10s budget, so this needs to be fast.
+        await new Promise(resolve => setTimeout(resolve, 800));
         listings = await runExtract();
       } else {
         throw err;
