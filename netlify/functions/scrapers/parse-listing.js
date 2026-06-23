@@ -1,3 +1,4 @@
+
 // Converts the raw {url, rawText} pairs that scrapers extract into the
 // same structured listing shape the front-end's render() function expects
 // (the same shape Claude's web_search path already produces). This keeps
@@ -90,8 +91,22 @@ function parseListingText(sourceName, url, rawText) {
   const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1], 10) : null;
 
   // Surface: "24 M²" / "60,14 M2" / "39.93 m2" — note French decimal comma
-  const sqmMatch = text.match(/(\d+(?:[.,]\d+)?)\s*M[²2]/i);
-  const sqm = sqmMatch ? parseFloat(sqmMatch[1].replace(',', '.')) : null;
+  // BUG FIX (confirmed against real Patrimoine Immo listing text this
+  // session): the page's link title repeats a ROUNDED sqm figure twice
+  // before the precise figure appears (e.g. "...11m2 GARCHES...11m2
+  // GARCHES 10.5 m²..."), and a single non-global match always grabbed
+  // the first, less-precise "11" instead of the real "10.5". Now finds
+  // every sqm-like match in the text and prefers one with a decimal
+  // point/comma (the precise figure) if any exists; otherwise falls
+  // back to the LAST match, which is still better than the first for
+  // this repeated-title pattern.
+  const sqmMatches = [...text.matchAll(/(\d+(?:[.,]\d+)?)\s*M[²2]/gi)];
+  let sqm = null;
+  if (sqmMatches.length) {
+    const withDecimal = sqmMatches.find(m => /[.,]/.test(m[1]));
+    const chosen = withDecimal || sqmMatches[sqmMatches.length - 1];
+    sqm = parseFloat(chosen[1].replace(',', '.'));
+  }
 
   // Reference number: "Réf : 4201263" / "Réf: 2522" / "Ref. : 4868"
   // BUG FIX (confirmed against real Cabinet Montoro text this session):
