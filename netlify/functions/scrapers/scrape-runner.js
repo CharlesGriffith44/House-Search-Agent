@@ -12,6 +12,28 @@ const { SCRAPER_CONFIG } = require('./source-config');
 
 const CDP_URL = process.env.CATALYST_CDP_URL;
 
+// Phrases confirmed THIS SESSION on real, live sites that mark a listing
+// as already rented/let, mixed directly into the same feed as available
+// properties:
+//   - "Loué" / "Loué Réf..." — Palais Royal Immobilier
+//   - "LOUE PAR L'AGENCE" / "LOUÉ PAR L'AGENCE" — Luxe Prestige Immo
+//   - "La propriété est louée" — Nicolas Devillard
+// Matched case-insensitively. New sources may reveal new phrasings —
+// add them here, not in individual source configs, so every source
+// benefits immediately.
+const ALREADY_RENTED_PHRASES = [
+  'loué',
+  'loue par l\'agence',
+  'la propriété est louée',
+  'la propriete est louee',
+];
+
+function isAlreadyRented(rawText) {
+  if (!rawText) return false;
+  const lower = rawText.toLowerCase();
+  return ALREADY_RENTED_PHRASES.some(phrase => lower.includes(phrase));
+}
+
 // Scrape ONE source by name. Returns { source, listings, error }.
 // Never throws — a failure on one source must not take down a search
 // that includes other sources, scraped or AI-searched.
@@ -93,7 +115,23 @@ async function scrapeSource(sourceName) {
       }
     }
 
-    return { source: sourceName, listings, error: null };
+    // SAFETY NET: several sources mix already-rented properties into the
+    // SAME listing feed as currently-available ones (confirmed on Palais
+    // Royal Immobilier "Loué Réf...", Nicolas Devillard "La propriété est
+    // louée", Luxe Prestige Immo "LOUÉ PAR L'AGENCE"). Filtering this here,
+    // once, in the shared runner, means every current and future source is
+    // automatically protected — no need to remember to add this check in
+    // each source's own extract() function.
+    const beforeFilter = listings.length;
+    listings = listings.filter(item => !isAlreadyRented(item.rawText));
+    const rentedFiltered = beforeFilter - listings.length;
+
+    return {
+      source: sourceName,
+      listings,
+      error: null,
+      rentedFiltered, // surfaced for visibility, not an error condition
+    };
   } catch (err) {
     return { source: sourceName, listings: [], error: `Extraction failed: ${err.message}` };
   } finally {
