@@ -716,7 +716,19 @@ async function runSearch(ref){
     }
     render(data.prospectorResult, f, ref);
   }catch(e){
-    document.getElementById('content').innerHTML = `<div class="state"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M20 12v10M20 26v2" stroke-linecap="round"/></svg><h3>Search failed</h3><p>${e.message ? e.message : 'Could not complete the search. Check your connection and try again.'}</p></div>`;
+    // "The string did not match the expected pattern" is the browser's
+    // own JSON-parsing error when a response gets cut off mid-stream —
+    // confirmed this session, more than once, to be a transient Catalyst
+    // headless-browser blip (the single shared browser session occasionally
+    // takes a moment too long), not a real code bug. Retrying the exact
+    // same search has resolved it every time it's happened so far. Surface
+    // that directly instead of leaving people to guess what a cryptic
+    // browser error means.
+    const isTransientPattern = e.message && e.message.includes('did not match the expected pattern');
+    const friendlyMessage = isTransientPattern
+      ? 'This usually clears up on its own — click "Refresh" above to try the same search again.'
+      : (e.message || 'Could not complete the search. Check your connection and try again.');
+    document.getElementById('content').innerHTML = `<div class="state"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M20 12v10M20 26v2" stroke-linecap="round"/></svg><h3>Search failed</h3><p>${friendlyMessage}</p></div>`;
     document.getElementById('resTitle').textContent = 'Search error';
   }
 
