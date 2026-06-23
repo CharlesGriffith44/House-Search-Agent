@@ -281,6 +281,38 @@ const SCRAPER_CONFIG = {
       return results;
     },
   },
+
+  // Patrimoine Immo — confirmed this session: WordPress platform.
+  // Link pattern: /annonce-immobiliere/{id}-{slug}/. Confirmed via live
+  // fetch: 44 real listings, server-rendered (no JS needed), clean
+  // consistent text format throughout — "Location Appartement {size}m2
+  // {city} {sqm} m² | {rooms} pièce(s) [| {bedrooms} chambre(s)]
+  // {price}€ / mois". No "already-rented" trap observed on this page
+  // (unlike Palais Royal / Nicolas Devillard / Luxe Prestige Immo) —
+  // the universal isAlreadyRented filter in scrape-runner.js still
+  // applies as a safety net regardless.
+  'Patrimoine Immo': {
+    url: 'https://patrimoine-immo.com/annonce-immobiliere/?contract-type=rental',
+    waitForSelector: 'a[href*="/annonce-immobiliere/"]',
+    extract: () => {
+      const results = [];
+      const links = Array.from(document.querySelectorAll('a[href*="/annonce-immobiliere/"]'))
+        .filter(a => /\/annonce-immobiliere\/\d+-/.test(a.href)); // exclude the bare category link itself
+      const seen = new Set();
+      for (const link of links) {
+        const href = link.href;
+        if (seen.has(href)) continue;
+        seen.add(href);
+        let container = link.closest('div') || link.parentElement;
+        for (let i = 0; i < 3 && container && container.innerText.length < 20; i++) {
+          container = container.parentElement;
+        }
+        const text = container ? container.innerText.replace(/\s+/g, ' ').trim() : '';
+        results.push({ url: href, rawText: text.slice(0, 300) });
+      }
+      return results;
+    },
+  },
 };
 
 module.exports = { SCRAPER_CONFIG };
