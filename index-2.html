@@ -681,10 +681,7 @@ async function runSearch(ref){
     const res = await fetch('https://00gixdjmf8.execute-api.eu-west-1.amazonaws.com/Prod/search', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        sources: Array.from(f.sources),
-        messages:[{content: 'Find apartments in Paris'}]
-      })
+      body:JSON.stringify({sources:Array.from(f.sources),messages:[{content:'Find apartments'}]})
     });
     const data = await res.json();
 
