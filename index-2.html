@@ -682,7 +682,7 @@ async function runSearch(ref){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        sources: f.sources,
+        sources: Array.from(f.sources),
         messages:[{content: 'Find apartments in Paris'}]
       })
     });
