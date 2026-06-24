@@ -682,8 +682,8 @@ async function runSearch(ref){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        messages:[{role:'user',content:buildPrompt(f,ref)}],
-        maxSearches: Math.max(f.sources.length, 1)
+        sources: f.sources,
+        messages:[{content: 'Find apartments in Paris'}]
       })
     });
     const data = await res.json();
