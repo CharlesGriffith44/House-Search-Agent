@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospector - Your Friend in Paris</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --french-blue: #4FADF9;
+      --royal-blue: #345083;
+      --cream: #FFF8F0;
+      --lipstick: #FF4769;
+      --concrete: #D8D6D4;
+      --white: #ffffff;
+      --text-dark: #2c3e50;
+    }
+
+    body {
+      font-family: 'Futura', Arial, sans-serif;
+      background-color: var(--cream);
+      color: var(--text-dark);
+      line-height: 1.6;
+    }
+
+    .header {
+      background: var(--french-blue);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .header p {
+      font-size: 12px;
+      margin-top: 5px;
+      opacity: 0.95;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 30px 20px;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 30px;
+    }
+
+    .search-panel {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      height: fit-content;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .search-panel h2 {
+      color: var(--royal-blue);
+      font-size: 18px;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    .section-title {
+      color: var(--french-blue);
+      font-size: 13px;
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .sources-list, .locations-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .source-tag, .location-tag {
+      padding: 8px 12px;
+      border: 1px solid var(--french-blue);
+      color: var(--french-blue);
+      border-radius: 6px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .source-tag:hover, .location-tag:hover {
+      background: var(--french-blue);
+      color: white;
+    }
+
+    .source-tag.selected, .location-tag.selected {
+      background: var(--french-blue);
+      color: white;
+    }
+
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filter-label {
+      color: var(--royal-blue);
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .filter-range {
+      display: flex;
+      gap: 8px;
+    }
+
+    .filter-range input, .filter-range select {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid var(--concrete);
+      border-radius: 4px;
+      font-size: 12px;
+      background: var(--cream);
+      color: var(--text-dark);
+    }
+
+    .filter-range input:focus, .filter-range select:focus {
+      outline: none;
+      border-color: var(--french-blue);
+      background: white;
+    }
+
+    .search-btn {
+      background: var(--lipstick);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.3s;
+      width: 100%;
+    }
+
+    .search-btn:hover {
+      background: #ff2f5e;
+      box-shadow: 0 4px 12px rgba(255, 71, 105, 0.3);
+    }
+
+    .search-btn:disabled {
+      background: var(--concrete);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .results {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .results h2 {
+      color: var(--royal-blue);
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    .listings {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .listing {
+      border: 1px solid var(--concrete);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s;
+      background: var(--cream);
+    }
+
+    .listing:hover {
+      box-shadow: 0 4px 12px rgba(79, 173, 249, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .listing-header {
+      background: var(--french-blue);
+      color: white;
+      padding: 15px;
+    }
+
+    .listing-price {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .listing-location {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    .listing-body {
+      padding: 15px;
+    }
+
+    .listing-specs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .spec {
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .spec-label {
+      color: var(--concrete);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .spec-value {
+      color: var(--royal-blue);
+      font-weight: 600;
+      margin-top: 3px;
+    }
+
+    .listing-url {
+      display: inline-block;
+      color: var(--french-blue);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .listing-url:hover {
+      color: var(--lipstick);
+    }
+
+    .state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--concrete);
+    }
+
+    .state svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      stroke: var(--french-blue);
+      opacity: 0.3;
+    }
+
+    .state h3 {
+      color: var(--royal-blue);
+      margin-bottom: 10px;
+    }
+
+    .source-link {
+      color: var(--french-blue);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 15px;
+      text-decoration: underline;
+    }
+
+    .source-link:hover {
+      color: var(--lipstick);
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .search-panel {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div>
+        <h1>PROSPECTOR</h1>
+        <p>YOUR FRIEND IN PARIS</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="search-panel">
+      <h2>New property search</h2>
+      
+      <div>
+        <div class="section-title">Sources</div>
+        <div class="sources-list" id="sourcesList"></div>
+        <div style="margin-top: 10px;">
+          <span class="source-link" id="showAllSources">+ Show all sources</span>
+          <span class="source-link" id="selectAll">Select all</span>
+          <span class="source-link" id="clearSources">Clear</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Locations (select after search)</div>
+        <div class="locations-list" id="locationsList">Search first to see available locations</div>
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label class="filter-label">Budget (€/month)</label>
+          <div class="filter-range">
+            <input type="number" id="budgetMin" placeholder="Min">
+            <input type="number" id="budgetMax" placeholder="Max">
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Rooms</label>
+          <div class="filter-range">
+            <input type="number" id="roomsMin" placeholder="Min">
+            <input type="number" id="roomsMax" placeholder="Max">
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Bedrooms</label>
+          <div class="filter-range">
+            <input type="number" id="bedroomsMin" placeholder="Min">
+            <input type="number" id="bedroomsMax" placeholder="Max">
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Surface (m²)</label>
+          <div class="filter-range">
+            <input type="number" id="sqmMin" placeholder="Min">
+            <input type="number" id="sqmMax" placeholder="Max">
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Floor</label>
+          <div class="filter-range">
+            <input type="number" id="floorMin" placeholder="Min">
+            <input type="number" id="floorMax" placeholder="Max">
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Furnishing</label>
+          <div class="filter-range">
+            <select id="meubleFilter">
+              <option value="either">Either</option>
+              <option value="meuble">Meublé</option>
+              <option value="non">Non meublé</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Amenities</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="featElevator"> Elevator</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="featBalcony"> Balcony</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="featHaussman"> Haussmann</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="featKitchen"> Kitchen</label>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Energy Rating (DPE)</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="A" class="dpeCk"> A</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="B" class="dpeCk"> B</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="C" class="dpeCk"> C</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="D" class="dpeCk"> D</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="E" class="dpeCk"> E</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="F" class="dpeCk"> F</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:12px"><input type="checkbox" value="G" class="dpeCk"> G</label>
+          </div>
+        </div>
+      </div>
+
+      <button class="search-btn" id="searchBtn">Search listings</button>
+    </div>
+
+    <div class="results" id="results"></div>
+  </div>
+
+  <script>
+const SOURCES = ['Vielmon', 'Cabinet Montoro', 'AFR Immobilier', 'Patrimoine Ouest Parisien', 'Paris Seine Immobilier'];
+const DEFAULT_SOURCES = ['Vielmon', 'Cabinet Montoro'];
+
+let selectedSources = new Set(DEFAULT_SOURCES);
+let selectedLocations = new Set();
+let allSearchResults = [];
+let showAllSources = false;
+
+function initUI() {
+  renderSources();
+  document.getElementById('showAllSources').addEventListener('click', () => {
+    showAllSources = !showAllSources;
+    renderSources();
+  });
+  document.getElementById('selectAll').addEventListener('click', () => {
+    selectedSources = new Set(SOURCES);
+    renderSources();
+  });
+  document.getElementById('clearSources').addEventListener('click', () => {
+    selectedSources.clear();
+    renderSources();
+  });
+  document.getElementById('searchBtn').addEventListener('click', doSearch);
+}
+
+function renderSources() {
+  const list = document.getElementById('sourcesList');
+  const visible = showAllSources ? SOURCES : SOURCES.slice(0, 4);
+  list.innerHTML = visible.map(s => `
+    <div class="source-tag ${selectedSources.has(s) ? 'selected' : ''}" onclick="toggleSource('${s}')">${s}</div>
+  `).join('');
+}
+
+function toggleSource(source) {
+  if (selectedSources.has(source)) {
+    selectedSources.delete(source);
+  } else {
+    selectedSources.add(source);
+  }
+  renderSources();
+}
+
+function getFilters() {
+  return {
+    budget: {
+      min: parseInt(document.getElementById('budgetMin').value) || null,
+      max: parseInt(document.getElementById('budgetMax').value) || null
+    },
+    rooms: {
+      min: parseInt(document.getElementById('roomsMin').value) || null,
+      max: parseInt(document.getElementById('roomsMax').value) || null
+    },
+    bedrooms: {
+      min: parseInt(document.getElementById('bedroomsMin').value) || null,
+      max: parseInt(document.getElementById('bedroomsMax').value) || null
+    },
+    sqm: {
+      min: parseInt(document.getElementById('sqmMin').value) || null,
+      max: parseInt(document.getElementById('sqmMax').value) || null
+    },
+    floor: {
+      min: parseInt(document.getElementById('floorMin').value) || null,
+      max: parseInt(document.getElementById('floorMax').value) || null
+    },
+    meuble: document.getElementById('meubleFilter').value,
+    feats: {
+      elevator: document.getElementById('featElevator').checked,
+      balcony: document.getElementById('featBalcony').checked,
+      haussman: document.getElementById('featHaussman').checked,
+      kitchen: document.getElementById('featKitchen').checked
+    },
+    dpe: Array.from(document.querySelectorAll('.dpeCk:checked')).map(el => el.value)
+  };
+}
+
+function filterListings(listings, f) {
+  return listings.filter(p => {
+    if(f.budget.min != null && p.price < f.budget.min) return false;
+    if(f.budget.max != null && p.price > f.budget.max) return false;
+    if(f.rooms.min != null && p.rooms < f.rooms.min) return false;
+    if(f.rooms.max != null && p.rooms > f.rooms.max) return false;
+    if(f.bedrooms.min != null && p.bedrooms < f.bedrooms.min) return false;
+    if(f.bedrooms.max != null && p.bedrooms > f.bedrooms.max) return false;
+    if(f.sqm.min != null && p.sqm < f.sqm.min) return false;
+    if(f.sqm.max != null && p.sqm > f.sqm.max) return false;
+    if(f.floor.min != null && p.floor < f.floor.min) return false;
+    if(f.floor.max != null && p.floor > f.floor.max) return false;
+    if(f.meuble === 'meuble' && !p.meuble) return false;
+    if(f.meuble === 'non' && p.meuble) return false;
+    if(f.feats.elevator && !p.elevator) return false;
+    if(f.feats.balcony && !p.balcony) return false;
+    if(f.feats.haussman && !p.haussman) return false;
+    if(f.feats.kitchen && !p.equippedKitchen) return false;
+    if(f.dpe.length > 0 && p.dpe && !f.dpe.includes(p.dpe)) return false;
+    return true;
+  });
+}
+
+function render(data, filters) {
+  const resultsDiv = document.getElementById('results');
+  
+  if (!data || !data.listings || data.listings.length === 0) {
+    resultsDiv.innerHTML = `<div class="state"><h3>No listings found</h3><p>Try adjusting your filters</p></div>`;
+    return;
+  }
+
+  const filtered = filterListings(data.listings, filters);
+  
+  let html = `<h2>${data.reasoning || 'Search Results'}</h2>`;
+  
+  if (filtered.length === 0 && data.listings.length > 0) {
+    html += `<div class="state"><h3>No matches</h3><p>${data.listings.length} listing(s) found but none matched your filters — try relaxing one.</p></div>`;
+  } else {
+    html += `<div class="listings">`;
+    filtered.forEach(listing => {
+      html += `
+        <div class="listing">
+          <div class="listing-header">
+            <div class="listing-price">€${listing.price?.toLocaleString() || 'N/A'}</div>
+            <div class="listing-location">${listing.location || listing.address || 'Location TBA'}</div>
+          </div>
+          <div class="listing-body">
+            <div class="listing-specs">
+              ${listing.rooms ? `<div class="spec"><div class="spec-label">Rooms</div><div class="spec-value">${listing.rooms}</div></div>` : ''}
+              ${listing.bedrooms ? `<div class="spec"><div class="spec-label">Bedrooms</div><div class="spec-value">${listing.bedrooms}</div></div>` : ''}
+              ${listing.sqm ? `<div class="spec"><div class="spec-label">Surface</div><div class="spec-value">${listing.sqm}m²</div></div>` : ''}
+              ${listing.pricePerSqm ? `<div class="spec"><div class="spec-label">€/m²</div><div class="spec-value">${listing.pricePerSqm}</div></div>` : ''}
+            </div>
+            <a href="${listing.url}" target="_blank" class="listing-url">${listing.url.replace(/^https?:\/\//, '')}</a>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  resultsDiv.innerHTML = html;
+}
+
+async function doSearch() {
+  const rBtn = document.getElementById('searchBtn');
+  rBtn.disabled = true;
+  rBtn.textContent = 'Searching...';
+
+  const f = getFilters();
+  const sources = Array.from(selectedSources);
+
+  try {
+    const response = await fetch('https://00gixdjmf8.execute-api.eu-west-1.amazonaws.com/Prod/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sources })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+
+    if (data.error) throw new Error(data.error.message || 'Search failed');
+
+    render(data, f);
+  } catch (e) {
+    document.getElementById('results').innerHTML = `<div class="state"><h3>Search failed</h3><p>${e.message || 'Check connection and try again'}</p></div>`;
+  } finally {
+    rBtn.disabled = false;
+    rBtn.textContent = 'Search listings';
+  }
+}
+
+initUI();
+  </script>
+</body>
+</html>
