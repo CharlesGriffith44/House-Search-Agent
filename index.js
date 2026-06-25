@@ -1,15 +1,8 @@
 const https = require('https');
 
-function fetchFromGitHub() {
+function getFromGitHub(url) {
   return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'raw.githubusercontent.com',
-      path: '/CharlesGriffith44/House-Search-Agent/main/data/listings.json',
-      method: 'GET',
-      headers: { 'User-Agent': 'Lambda' }
-    };
-    
-    https.request(options, (res) => {
+    https.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -19,41 +12,58 @@ function fetchFromGitHub() {
           reject(e);
         }
       });
-    }).on('error', reject).end();
+    }).on('error', reject);
   });
 }
 
 exports.handler = async (event) => {
   try {
-    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
-    const sources = body.sources || [];
-
-    if (!sources.includes('barnes-international')) {
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Only barnes-international supported' })
-      };
+    const githubUrl = 'https://raw.githubusercontent.com/CharlesGriffith44/House-Search-Agent/main/data/listings.json';
+    const data = await getFromGitHub(githubUrl);
+    
+    // Parse filter parameters from request body
+    const body = event.body ? JSON.parse(event.body) : {};
+    const filters = {
+      sources: body.sources || Object.keys(data.sources),
+      type: body.type || ['rental', 'purchase'], // rental, purchase, or both
+      minPrice: body.minPrice || 0,
+      maxPrice: body.maxPrice || 999999999
+    };
+    
+    // Apply filters
+    let listings = [];
+    
+    for (const source of filters.sources) {
+      if (data.sources[source]) {
+        const sourceListings = data.sources[source]
+          .filter(listing => {
+            const typeMatch = filters.type.includes(listing.type);
+            const priceMatch = listing.price >= filters.minPrice && listing.price <= filters.maxPrice;
+            return typeMatch && priceMatch;
+          });
+        
+        listings.push(...sourceListings);
+      }
     }
-
-    const data = await fetchFromGitHub();
-    const listings = data.sources['barnes-international'] || [];
     
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prospectorResult: {
           listings,
-          count: listings.length
+          count: listings.length,
+          timestamp: data.timestamp,
+          availableSources: Object.keys(data.sources),
+          filters: filters
         }
       })
     };
-  } catch (e) {
+    
+  } catch (error) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: e.message })
+      body: JSON.stringify({ error: error.message })
     };
   }
 };
