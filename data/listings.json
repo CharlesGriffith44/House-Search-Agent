@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-25T13:54:54.859Z",
+  "timestamp": "2026-06-25T14:05:49.372Z",
   "sources": {
     "barnes-international": [
       {
@@ -450,6 +450,164 @@
         "source": "barnes-international",
         "type": "rental",
         "price": 2600,
+        "address": "Paris"
+      }
+    ],
+    "junot": [
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 25300,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 25460,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 25460,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 42573,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 29500,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 13818,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 32000,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 29884,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 17607,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 40924,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 25000,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 22981,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 16800,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 20163,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 22981,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 44000,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 10886,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 26248,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 11945,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 18241,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 40913,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 13432,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 5906,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 12000,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 4438,
+        "address": "Paris"
+      },
+      {
+        "source": "junot",
+        "type": "rental",
+        "price": 19844,
         "address": "Paris"
       }
     ]
