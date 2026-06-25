@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-25T13:37:56.087Z",
+  "timestamp": "2026-06-25T13:54:54.859Z",
   "sources": {
     "barnes-international": [
       {
@@ -48,6 +48,408 @@
         "source": "barnes-international",
         "type": "rental",
         "price": 10350,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 9500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 8000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 7580,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 7500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 6900,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 6765,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 6765,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 6600,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 6160,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 6000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5650,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5600,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5200,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 5000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4850,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4850,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4800,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4800,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4450,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4250,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4200,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4200,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4200,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4200,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 4050,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3850,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3850,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3800,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3795,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3700,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3700,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3690,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3650,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3600,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3500,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3490,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3400,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3350,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3300,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3200,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3140,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3140,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3100,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3100,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3100,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 3000,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2927,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2900,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2800,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2800,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2790,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2700,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2700,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2700,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2600,
+        "address": "Paris"
+      },
+      {
+        "source": "barnes-international",
+        "type": "rental",
+        "price": 2600,
         "address": "Paris"
       }
     ]
