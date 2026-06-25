@@ -1,9 +1,9 @@
-name: Scrape Barnes
+name: Scrape Paris Real Estate
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Run every hour
-  workflow_dispatch:     # Allow manual trigger
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -18,12 +18,12 @@ jobs:
       
       - run: npm install
       
-      - run: node scrape-barnes.js
+      - run: node scrape-all.js
       
       - name: Commit and push
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add data/listings.json
-          git commit -m "Auto: Update listings" || echo "No changes"
+          git commit -m "Auto: Update 101 listings" || echo "No changes"
           git push
