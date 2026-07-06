@@ -1,0 +1,9 @@
+{
+  "name": "prospector-paris",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "puppeteer": "^23.0.0",
+    "exceljs": "^4.4.0"
+  }
+}
