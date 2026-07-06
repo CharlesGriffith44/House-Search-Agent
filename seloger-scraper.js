@@ -39,7 +39,9 @@ async function getBrowser() {
   return puppeteer.launch({
     headless: true,
     defaultViewport: { width: 1920, height: 1080 },
-    args: ['--disable-dev-shm-usage', '--disable-gpu']
+    // Same fix as scrape-runner.js — required for Chrome to launch at all
+    // on GitHub Actions' Ubuntu runners.
+    args: ['--disable-dev-shm-usage', '--disable-gpu', '--no-sandbox', '--disable-setuid-sandbox']
   });
 }
 
