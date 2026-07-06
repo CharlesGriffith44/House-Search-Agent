@@ -15,6 +15,7 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # safety net: fail fast on any future hang rather than running for hours
     steps:
       - uses: actions/checkout@v4
 
