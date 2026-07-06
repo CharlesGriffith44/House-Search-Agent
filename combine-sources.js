@@ -13,6 +13,22 @@
 const { scrapeBarnes } = require('./scrape-runner');
 const { scrapeSeLoger } = require('./seloger-scraper');
 
+// Blanket timeout wrapper — catches a hang ANYWHERE inside a scraper
+// function, not just at browser launch. Real successful runs (both local
+// and the one confirmed working GitHub Actions run) completed well under
+// 30 seconds per source on the fast path; 3 minutes is generous headroom
+// while still failing fast enough that a hang costs minutes, not hours.
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms)
+    )
+  ]);
+}
+
+const PER_SOURCE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
 async function combineAllSources(searchType = 'rent', options = {}) {
   const { fetchDetails = false } = options;
   const results = [];
@@ -21,7 +37,11 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   // Barnes
   try {
     console.log('=== Scraping Barnes ===');
-    const barnesResult = await scrapeBarnes(searchType, { fetchDetails });
+    const barnesResult = await withTimeout(
+      scrapeBarnes(searchType, { fetchDetails }),
+      PER_SOURCE_TIMEOUT_MS,
+      'Barnes scrape'
+    );
     if (barnesResult.error) {
       sourceStatus.push({ source: 'Barnes', found: 0, error: barnesResult.error });
     } else {
@@ -29,7 +49,7 @@ async function combineAllSources(searchType = 'rent', options = {}) {
       sourceStatus.push({ source: 'Barnes', found: barnesResult.listings.length, error: null });
     }
   } catch (error) {
-    console.error('Barnes threw unexpectedly:', error.message);
+    console.error('Barnes threw unexpectedly (or hung and was timed out):', error.message);
     sourceStatus.push({ source: 'Barnes', found: 0, error: error.message });
   }
 
@@ -37,7 +57,11 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   if (searchType === 'rent') {
     try {
       console.log('\n=== Scraping SeLoger ===');
-      const selogerResult = await scrapeSeLoger(searchType);
+      const selogerResult = await withTimeout(
+        scrapeSeLoger(searchType),
+        PER_SOURCE_TIMEOUT_MS,
+        'SeLoger scrape'
+      );
       if (selogerResult.error) {
         sourceStatus.push({ source: 'SeLoger', found: 0, error: selogerResult.error });
       } else {
@@ -45,7 +69,7 @@ async function combineAllSources(searchType = 'rent', options = {}) {
         sourceStatus.push({ source: 'SeLoger', found: selogerResult.listings.length, error: null });
       }
     } catch (error) {
-      console.error('SeLoger threw unexpectedly:', error.message);
+      console.error('SeLoger threw unexpectedly (or hung and was timed out):', error.message);
       sourceStatus.push({ source: 'SeLoger', found: 0, error: error.message });
     }
   } else {
