@@ -30,9 +30,11 @@
 // — not exhaustive, but continuously sampling new listings over time.
 
 const parseListing = require('./parse-listing');
+const { extractDetailFeatures } = require('./parse-listing');
 
 const URL_RENT = 'https://www.seloger.com/recherche/location/appartement/ile-de-france/paris-75000/ad08fr31096';
 const LISTING_SELECTOR = 'a[href*="/annonces/locations/"]';
+const DETAIL_FETCH_CONCURRENCY = 3;
 
 async function getBrowser() {
   const puppeteer = require('puppeteer');
@@ -85,6 +87,85 @@ function extractListings() {
   return results;
 }
 
+// Same concurrency-limited map pattern used for Barnes — runs at most
+// `limit` detail-page fetches at a time.
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await fn(items[current], current);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+// Visits ONE listing's detail page and extracts elevator/furnished/
+// bathroom count from SeLoger's "Caractéristiques" checklist — confirmed
+// via a real fetched detail page to contain clean bullet items like
+// "Ascenseur", "Meublé", "1 salle de douches", not free prose. A failure
+// here must not crash the whole batch — returns nulls instead, visible
+// and honest rather than silently wrong.
+async function fetchListingDetails(browser, url) {
+  let page;
+  try {
+    page = await browser.newPage();
+    await page.setDefaultNavigationTimeout(20000);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+    const bodyText = await page.evaluate(() => {
+      const visible = document.body.innerText || '';
+      const all = document.body.textContent || '';
+      const spaced = all.replace(/([a-z])([A-Z])/g, '$1 $2');
+      return visible + ' ' + spaced;
+    });
+
+    await page.close();
+    return extractDetailFeatures(bodyText);
+  } catch (error) {
+    console.log(`[SeLoger] Detail fetch failed for ${url}: ${error.message}`);
+    if (page) { try { await page.close(); } catch (e) {} }
+    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null };
+  }
+}
+
+// Enriches parsed listings with detail-page data. Always runs for SeLoger
+// (unlike Barnes, where it's opt-in) since the cost is low: ~30 listings
+// per run here versus Barnes' 100, so this adds roughly 20-40 seconds,
+// not minutes.
+async function enrichWithDetails(browser, listings) {
+  console.log(`[SeLoger] Fetching detail pages for ${listings.length} listings (concurrency: ${DETAIL_FETCH_CONCURRENCY})...`);
+  const start = Date.now();
+  let completed = 0;
+
+  const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, async (listing) => {
+    const result = await fetchListingDetails(browser, listing.url);
+    completed++;
+    if (completed % 10 === 0 || completed === listings.length) {
+      const elapsed = ((Date.now() - start) / 1000).toFixed(0);
+      console.log(`[SeLoger] Detail progress: ${completed}/${listings.length} (${elapsed}s elapsed)`);
+    }
+    return result;
+  });
+
+  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+  console.log(`[SeLoger] Detail fetch complete in ${elapsed}s`);
+
+  return listings.map((listing, i) => {
+    const d = details[i];
+    // Bathroom count from the detail page only fills in where the
+    // summary card's own bathroom field (parseListing's regular field,
+    // which SeLoger's summary card essentially never has) is missing.
+    const bathrooms = listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail;
+    return { ...listing, elevator: d.elevator, balcony: d.balcony, furnished: d.furnished, bathrooms };
+  });
+}
+
 async function scrapeSeLoger(searchType = 'rent') {
   let browser;
   let page;
@@ -123,8 +204,10 @@ async function scrapeSeLoger(searchType = 'rent') {
     const valid = parsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
     console.log(`[SeLoger] Valid listings: ${valid.length}`);
 
+    const enriched = await enrichWithDetails(browser, valid);
+
     await browser.close();
-    return { source: 'SeLoger', searchType, listings: valid, error: null };
+    return { source: 'SeLoger', searchType, listings: enriched, error: null };
 
   } catch (error) {
     console.error(`[SeLoger] Error: ${error.message}`);
