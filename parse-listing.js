@@ -129,18 +129,47 @@ function emptyListing() {
 function extractDetailFeatures(pageText) {
   const text = (pageText || '');
 
-  const elevator = /\b(lift|elevator|ascenseur)\b/i.test(text);
+  // Order matters: "sans ascenseur" (no elevator) contains "ascenseur" as a
+  // substring — checking the positive pattern first would wrongly read a
+  // NEGATED mention as elevator:true. This is a real bug caught during
+  // review before it shipped: Barnes' Amenities list never has this
+  // problem (a checklist either lists "Lift" or omits it, never states
+  // "no lift" in prose), but SeLoger's AI-generated characteristics list
+  // is closer to a checklist than prose, so this may be rare there too —
+  // still worth guarding since we can't verify every listing's phrasing.
+  let elevator = false;
+  if (!/\bsans\s+ascenseur\b/i.test(text) && !/\bno\s+lift\b/i.test(text)) {
+    elevator = /\b(lift|elevator|ascenseur)\b/i.test(text);
+  }
+
   const balcony = /\b(balcony|balcon)\b/i.test(text);
 
   // Order matters: "unfurnished" contains "furnished" as a substring.
+  // NOTE: no trailing \b after the accented "é" in meubl[ée] — JS regex's
+  // \b only recognizes ASCII word characters by default, so a trailing \b
+  // right after "é" fails to match even on a clean word boundary (same
+  // class of bug found earlier in this file with "m²"). Leading \b is
+  // fine since it's before an ASCII "m".
   let furnished = null;
   if (/\bunfurnished\b/i.test(text) || /\bnon[\s-]?meubl[ée]/i.test(text)) {
     furnished = false;
-  } else if (/\bfurnished\b/i.test(text) || /\bmeubl[ée]\b/i.test(text)) {
+  } else if (/\bfurnished\b/i.test(text) || /\bmeubl[ée]/i.test(text)) {
     furnished = true;
   }
 
-  return { elevator, balcony, furnished };
+  // Bathroom count from a checklist-style mention (SeLoger's "1 salle de
+  // douches" / "2 salles de bain" characteristics format). Distinct from
+  // parseListing()'s own bathroom field, which reads the summary card —
+  // this is specifically for sources where bathroom count only appears
+  // on the detail page.
+  let bathroomsFromDetail = null;
+  const bathMatch = text.match(/(\d+)\s*salles?\s*(?:de)?\s*(?:bain|douche)s?/i)
+    || text.match(/(\d+)\s*bathrooms?\b/i);
+  if (bathMatch) {
+    bathroomsFromDetail = parseInt(bathMatch[1], 10);
+  }
+
+  return { elevator, balcony, furnished, bathroomsFromDetail };
 }
 
 module.exports = parseListing;
