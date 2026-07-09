@@ -154,43 +154,60 @@ async function scrapeTown(browser, slug, searchType) {
   }
 }
 
-async function scrapeBarnesSuburbs(browser, searchType = 'rent') {
-  console.log(`[Barnes-Suburbs] Scraping ${SUBURB_SLUGS.length} suburb towns...`);
-  let completed = 0;
-  const start = Date.now();
+async function scrapeBarnesSuburbs(searchType = 'rent') {
+  let browser;
+  try {
+    const puppeteer = require('puppeteer');
+    browser = await puppeteer.launch({
+      headless: true,
+      defaultViewport: { width: 1920, height: 1080 },
+      args: ['--disable-dev-shm-usage', '--disable-gpu', '--no-sandbox', '--disable-setuid-sandbox']
+    });
 
-  const results = await mapWithConcurrency(SUBURB_SLUGS, MAX_CONCURRENT, async (slug) => {
-    const result = await scrapeTown(browser, slug, searchType);
-    completed++;
-    if (completed % 10 === 0 || completed === SUBURB_SLUGS.length) {
-      const elapsed = ((Date.now() - start) / 1000).toFixed(0);
-      console.log(`[Barnes-Suburbs] Progress: ${completed}/${SUBURB_SLUGS.length} (${elapsed}s elapsed)`);
+    console.log(`[Barnes-Suburbs] Scraping ${SUBURB_SLUGS.length} suburb towns...`);
+    let completed = 0;
+    const start = Date.now();
+
+    const results = await mapWithConcurrency(SUBURB_SLUGS, MAX_CONCURRENT, async (slug) => {
+      const result = await scrapeTown(browser, slug, searchType);
+      completed++;
+      if (completed % 10 === 0 || completed === SUBURB_SLUGS.length) {
+        const elapsed = ((Date.now() - start) / 1000).toFixed(0);
+        console.log(`[Barnes-Suburbs] Progress: ${completed}/${SUBURB_SLUGS.length} (${elapsed}s elapsed)`);
+      }
+      return result;
+    });
+
+    await browser.close();
+
+    const allListings = [];
+    const failedSlugs = [];
+    let zeroResultCount = 0;
+
+    for (const r of results) {
+      if (r.error) { failedSlugs.push(`${r.slug} (${r.error})`); continue; }
+      if (r.listings.length === 0) { zeroResultCount++; continue; }
+      for (const item of r.listings) {
+        const listing = parseListing(item.rawText);
+        listing.url = item.url;
+        listing.source = 'Barnes';
+        listing.searchType = searchType;
+        listing.isExactListing = true;
+        allListings.push(listing);
+      }
     }
-    return result;
-  });
 
-  const allListings = [];
-  const failedSlugs = [];
-  let zeroResultCount = 0;
+    console.log(`[Barnes-Suburbs] Total listings: ${allListings.length}`);
+    console.log(`[Barnes-Suburbs] Zero-result towns: ${zeroResultCount}/${SUBURB_SLUGS.length}`);
+    if (failedSlugs.length > 0) console.log(`[Barnes-Suburbs] Failed towns: ${failedSlugs.join(', ')}`);
 
-  for (const r of results) {
-    if (r.error) { failedSlugs.push(`${r.slug} (${r.error})`); continue; }
-    if (r.listings.length === 0) { zeroResultCount++; continue; }
-    for (const item of r.listings) {
-      const listing = parseListing(item.rawText);
-      listing.url = item.url;
-      listing.source = 'Barnes';
-      listing.searchType = searchType;
-      listing.isExactListing = true;
-      allListings.push(listing);
-    }
+    return { source: 'Barnes', searchType, listings: allListings, error: null, diagnostics: { zeroResultCount, failedSlugs } };
+
+  } catch (error) {
+    console.error(`[Barnes-Suburbs] Fatal error: ${error.message}`);
+    if (browser) { try { await browser.close(); } catch (e) {} }
+    return { source: 'Barnes', searchType, listings: [], error: error.message };
   }
-
-  console.log(`[Barnes-Suburbs] Total listings: ${allListings.length}`);
-  console.log(`[Barnes-Suburbs] Zero-result towns: ${zeroResultCount}/${SUBURB_SLUGS.length}`);
-  if (failedSlugs.length > 0) console.log(`[Barnes-Suburbs] Failed towns: ${failedSlugs.join(', ')}`);
-
-  return { listings: allListings, diagnostics: { zeroResultCount, failedSlugs } };
 }
 
 module.exports = { scrapeBarnesSuburbs, SUBURB_SLUGS };
