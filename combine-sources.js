@@ -22,12 +22,11 @@ const { scrapeSeLogerSuburbs } = require('./seloger-suburbs-scraper');
 // 30 seconds per source on the fast path; 3 minutes is generous headroom
 // while still failing fast enough that a hang costs minutes, not hours.
 function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms)
-    )
-  ]);
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
 // Increased from 3 minutes after real evidence: a legitimate Barnes run
@@ -60,9 +59,9 @@ async function runSource(label, promiseFactory, results, sourceStatus) {
 }
 
 async function combineAllSources(searchType = 'rent', options = {}) {
-  const { fetchDetails = false } = options;
-  const results = [];
-  const sourceStatus = [];
+  const { fetchDetails = false, excludeSeLogerSuburbs = false, externalListings = [], externalSourceStatus = [] } = options;
+  const results = [...externalListings];
+  const sourceStatus = [...externalSourceStatus];
 
   await runSource('Barnes', () => scrapeBarnes(searchType, { fetchDetails }), results, sourceStatus);
   await runSource('Barnes-Suburbs', () => scrapeBarnesSuburbs(searchType), results, sourceStatus);
@@ -72,10 +71,19 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   // seloger-scraper.js and seloger-suburbs-scraper.js for why).
   if (searchType === 'rent') {
     await runSource('SeLoger', () => scrapeSeLoger(searchType), results, sourceStatus);
-    await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
+    // SeLoger-Suburbs is excluded here when it's being run as separate
+    // isolated matrix jobs instead (see scrape-single-seloger-suburb.js) —
+    // each suburb gets its OWN GitHub Actions runner/session, testing
+    // whether SeLoger's anti-bot system is flagging the PATTERN of many
+    // distinct location searches within one session, not just volume.
+    if (!excludeSeLogerSuburbs) {
+      await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
+    }
   } else {
     sourceStatus.push({ source: 'SeLoger', found: 0, error: 'Purchase not yet supported for SeLoger' });
-    sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
+    if (!excludeSeLogerSuburbs) {
+      sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
+    }
   }
 
   return {
