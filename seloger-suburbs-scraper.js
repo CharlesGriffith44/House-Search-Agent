@@ -22,7 +22,17 @@ const { extractDetailFeatures } = require('./parse-listing');
 
 const LISTING_SELECTOR = 'a[href*="/annonces/locations/"]';
 const DETAIL_FETCH_CONCURRENCY = 3;
-const TOWN_CONCURRENCY = 3;
+// FIXED: was 3, causing nested concurrency (3 towns x 3 detail-fetches =
+// up to 9-12 simultaneous pages on ONE browser). Live evidence proved this
+// broke real data: Puteaux has 173 active listings (confirmed via direct
+// fetch), but the scraper returned 0 — the first 3 towns (matching the old
+// concurrency of 3) succeeded, every town after failed silently, strongly
+// suggesting the browser degraded under cumulative simultaneous load and
+// subsequent pages loaded blank (miscounted as "zero results" rather than
+// an error, since a blank page just has no listings to find).
+// Sequential town processing caps total simultaneous pages at
+// DETAIL_FETCH_CONCURRENCY + 1, not town_concurrency x detail_concurrency.
+const TOWN_CONCURRENCY = 1;
 
 // { slug, postalCode, geoCode } — geoCode individually verified live for
 // every entry, not derived from a pattern.
