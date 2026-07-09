@@ -12,6 +12,9 @@
 
 const { scrapeBarnes } = require('./scrape-runner');
 const { scrapeSeLoger } = require('./seloger-scraper');
+const { scrapeJunot } = require('./junot-scraper');
+const { scrapeBarnesSuburbs } = require('./barnes-suburbs-scraper');
+const { scrapeSeLogerSuburbs } = require('./seloger-suburbs-scraper');
 
 // Blanket timeout wrapper — catches a hang ANYWHERE inside a scraper
 // function, not just at browser launch. Real successful runs (both local
@@ -29,51 +32,43 @@ function withTimeout(promise, ms, label) {
 
 const PER_SOURCE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
+// Shared runner for every source: wraps in a timeout, catches any thrown
+// error, and always contributes a sourceStatus entry — so one source
+// failing (timeout, thrown error, or a clean {error: ...} return) never
+// stops the others from running or from being reflected in the output.
+async function runSource(label, promiseFactory, results, sourceStatus) {
+  try {
+    console.log(`\n=== Scraping ${label} ===`);
+    const result = await withTimeout(promiseFactory(), PER_SOURCE_TIMEOUT_MS, `${label} scrape`);
+    if (result.error) {
+      sourceStatus.push({ source: label, found: 0, error: result.error });
+    } else {
+      results.push(...result.listings);
+      sourceStatus.push({ source: label, found: result.listings.length, error: null });
+    }
+  } catch (error) {
+    console.error(`${label} threw unexpectedly (or hung and was timed out):`, error.message);
+    sourceStatus.push({ source: label, found: 0, error: error.message });
+  }
+}
+
 async function combineAllSources(searchType = 'rent', options = {}) {
   const { fetchDetails = false } = options;
   const results = [];
   const sourceStatus = [];
 
-  // Barnes
-  try {
-    console.log('=== Scraping Barnes ===');
-    const barnesResult = await withTimeout(
-      scrapeBarnes(searchType, { fetchDetails }),
-      PER_SOURCE_TIMEOUT_MS,
-      'Barnes scrape'
-    );
-    if (barnesResult.error) {
-      sourceStatus.push({ source: 'Barnes', found: 0, error: barnesResult.error });
-    } else {
-      results.push(...barnesResult.listings);
-      sourceStatus.push({ source: 'Barnes', found: barnesResult.listings.length, error: null });
-    }
-  } catch (error) {
-    console.error('Barnes threw unexpectedly (or hung and was timed out):', error.message);
-    sourceStatus.push({ source: 'Barnes', found: 0, error: error.message });
-  }
+  await runSource('Barnes', () => scrapeBarnes(searchType, { fetchDetails }), results, sourceStatus);
+  await runSource('Barnes-Suburbs', () => scrapeBarnesSuburbs(searchType), results, sourceStatus);
+  await runSource('Junot', () => scrapeJunot(searchType), results, sourceStatus);
 
-  // SeLoger (rent only for now — first page only, see seloger-scraper.js)
+  // SeLoger and its suburbs: rent only for now (first page only, see
+  // seloger-scraper.js and seloger-suburbs-scraper.js for why).
   if (searchType === 'rent') {
-    try {
-      console.log('\n=== Scraping SeLoger ===');
-      const selogerResult = await withTimeout(
-        scrapeSeLoger(searchType),
-        PER_SOURCE_TIMEOUT_MS,
-        'SeLoger scrape'
-      );
-      if (selogerResult.error) {
-        sourceStatus.push({ source: 'SeLoger', found: 0, error: selogerResult.error });
-      } else {
-        results.push(...selogerResult.listings);
-        sourceStatus.push({ source: 'SeLoger', found: selogerResult.listings.length, error: null });
-      }
-    } catch (error) {
-      console.error('SeLoger threw unexpectedly (or hung and was timed out):', error.message);
-      sourceStatus.push({ source: 'SeLoger', found: 0, error: error.message });
-    }
+    await runSource('SeLoger', () => scrapeSeLoger(searchType), results, sourceStatus);
+    await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
   } else {
     sourceStatus.push({ source: 'SeLoger', found: 0, error: 'Purchase not yet supported for SeLoger' });
+    sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
   }
 
   return {
