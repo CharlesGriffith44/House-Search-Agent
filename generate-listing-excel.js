@@ -1,5 +1,6 @@
 // generate-listing-excel.js
-// Runs the combiner (Barnes + SeLoger) and writes ONE Excel file.
+// Runs the combiner (Barnes, Barnes-Suburbs, Junot, SeLoger, SeLoger-Suburbs
+// — whatever succeeds) and writes ONE Excel file.
 //
 // IMPORTANT: always writes to the SAME filename ("listings.xlsx" /
 // "listings-purchase.xlsx") — never a date-stamped name. That means each
