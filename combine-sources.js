@@ -30,7 +30,14 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
-const PER_SOURCE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+// Increased from 3 minutes after real evidence: a legitimate Barnes run
+// completed in 176.5s (confirmed via logs) but was falsely reported as
+// failed because it raced past the old 180000ms ceiling by mere seconds.
+// Promise.race-based timeouts don't cancel the underlying operation, so a
+// too-tight margin causes exactly this: real success arriving just after
+// we'd already given up on it. 5 minutes gives real headroom above the
+// observed worst case.
+const PER_SOURCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // Shared runner for every source: wraps in a timeout, catches any thrown
 // error, and always contributes a sourceStatus entry — so one source
