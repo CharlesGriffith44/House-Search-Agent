@@ -73,10 +73,38 @@ jobs:
           path: output-seloger-${{ matrix.town }}.json
           retention-days: 1
 
-  # Downloads every artifact from both jobs above, merges everything, and
-  # writes/commits the final Excel file.
+  # Each Paris arrondissement gets its OWN isolated job too — same trick
+  # that fixed the suburbs, now used to get past Paris' unsolved
+  # pagination problem (seloger-scraper.js's own notes: 3 different
+  # pagination strategies tried, all failed) by treating each
+  # arrondissement as its own single-page "location" search instead.
+  scrape-seloger-arrondissement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        arr: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer
+      - name: Scrape arrondissement ${{ matrix.arr }} in isolation
+        run: node scrape-single-seloger-arrondissement.js ${{ matrix.arr }}
+      - name: Upload arrondissement ${{ matrix.arr }} result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-seloger-arr-${{ matrix.arr }}
+          path: output-seloger-arr-${{ matrix.arr }}.json
+          retention-days: 1
+
+  # Downloads every artifact from all three jobs above, merges everything,
+  # and writes/commits the final Excel file.
   merge-and-commit:
-    needs: [scrape-main, scrape-seloger-suburb]
+    needs: [scrape-main, scrape-seloger-suburb, scrape-seloger-arrondissement]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
