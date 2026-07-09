@@ -210,7 +210,23 @@ async function scrapeSeLogerSuburbs(searchType = 'rent') {
     // Sequential (TOWN_CONCURRENCY=1) since each town now gets its own
     // fresh browser — no benefit to overlapping them, and doing so would
     // reintroduce the original nested-resource-usage risk.
+    //
+    // NEW: deliberate delay between towns. Live evidence ruled out browser
+    // reuse as the cause (fresh browser per town still failed identically
+    // after town #2), which points instead to IP-based rate-limiting —
+    // consistent with SeLoger's confirmed DataDome usage and prior research
+    // noting it "can trigger blocks after a few successful requests." If
+    // this is frequency-based rather than a hard per-run cap, spacing
+    // requests out should let more towns through. This is a genuine test,
+    // not a guaranteed fix.
+    const DELAY_BETWEEN_TOWNS_MS = 15000;
+    let isFirst = true;
     const results = await mapWithConcurrency(SUBURB_TOWNS, TOWN_CONCURRENCY, async (town) => {
+      if (!isFirst) {
+        console.log(`[SeLoger-Suburbs] Waiting ${DELAY_BETWEEN_TOWNS_MS / 1000}s before next town (testing rate-limit theory)...`);
+        await new Promise(r => setTimeout(r, DELAY_BETWEEN_TOWNS_MS));
+      }
+      isFirst = false;
       const result = await scrapeTown(town, searchType);
       completed++;
       console.log(`[SeLoger-Suburbs] Progress: ${completed}/${SUBURB_TOWNS.length} (${town.slug}: ${result.listings.length} listings${result.error ? ', ERROR: ' + result.error : ''})`);
