@@ -3,36 +3,96 @@ name: Scrape and Deploy Listings
 on:
   schedule:
     - cron: '0 8 * * 1'   # 8:00 AM UTC every Monday
-  workflow_dispatch:       # lets you trigger a run manually from GitHub's UI
+  workflow_dispatch:
 
-# Needed so this workflow is allowed to commit the generated Excel file
-# back to the repo and publish it via Pages.
 permissions:
   contents: write
   pages: write
   id-token: write
 
 jobs:
-  scrape:
+  # Runs Barnes, Barnes-Suburbs, Junot, and SeLoger (Paris) in one job, as before.
+  scrape-main:
     runs-on: ubuntu-latest
-    timeout-minutes: 10   # safety net: fail fast on any future hang rather than running for hours
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Install dependencies
         run: npm install puppeteer exceljs
+      - name: Scrape main sources (excludes SeLoger-Suburbs)
+        run: node scrape-main-sources.js rent details
+      - name: Upload main sources output
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-main
+          path: output-main.json
+          retention-days: 1
 
-      - name: Run scraper and generate Excel
-        run: node generate-listing-excel.js rent details
+  # Each SeLoger suburb town gets its OWN isolated job (own runner, own
+  # session) — testing whether SeLoger's anti-bot system is flagging the
+  # PATTERN of many distinct location searches within one session, not
+  # just request volume. Evidence from single-process testing: search #1-2
+  # in a session always succeed, #3+ never do, regardless of concurrency,
+  # delay, or browser freshness tried within one process.
+  scrape-seloger-suburb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false # one suburb failing shouldn't cancel the others
+      matrix:
+        town:
+          - neuilly-sur-seine
+          - boulogne-billancourt
+          - suresnes
+          - levallois-perret
+          - rueil-malmaison
+          - puteaux
+          - saint-cloud
+          - saint-germain-en-laye
+          - le-vesinet
+          - vaucresson
+          - garches
+          - marnes-la-coquette
+          - ville-d-avray
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer
+      - name: Scrape ${{ matrix.town }} in isolation
+        run: node scrape-single-seloger-suburb.js ${{ matrix.town }}
+      - name: Upload ${{ matrix.town }} result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-seloger-${{ matrix.town }}
+          path: output-seloger-${{ matrix.town }}.json
+          retention-days: 1
 
-      # Commits listings.xlsx back to the repo under its FIXED filename.
-      # This is a normal "modify existing file" commit every run — not a
-      # new dated file each day — so the repo's history shows the file
-      # changing over time, same path/filename always.
+  # Downloads every artifact from both jobs above, merges everything, and
+  # writes/commits the final Excel file.
+  merge-and-commit:
+    needs: [scrape-main, scrape-seloger-suburb]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install exceljs
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Merge and generate Excel
+        run: node merge-and-generate.js rent artifacts
       - name: Commit updated Excel file to repo
         run: |
           git config user.name "GitHub Actions"
@@ -40,21 +100,16 @@ jobs:
           git add listings.xlsx
           git commit -m "Update listings: $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
           git push
-
-      # Also publish it via Pages, so there's a stable public download URL
-      # (https://<user>.github.io/<repo>/listings.xlsx) that always serves
-      # today's file without anyone needing repo access.
       - name: Prepare Pages output
         run: |
           mkdir -p _site
           cp listings.xlsx _site/listings.xlsx
-
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
-    needs: scrape
+    needs: merge-and-commit
     runs-on: ubuntu-latest
     environment:
       name: github-pages
