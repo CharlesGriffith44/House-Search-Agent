@@ -10,7 +10,13 @@ const path = require('path');
 const ExcelJS = require('exceljs');
 
 function findSeLogerSuburbFiles(dir) {
-  return fs.readdirSync(dir).filter(f => /^output-seloger-.+\.json$/.test(f));
+  // Specifically excludes "-arr-" files so this doesn't also match the
+  // arrondissement result files below (both start with "output-seloger-").
+  return fs.readdirSync(dir).filter(f => /^output-seloger-(?!arr-).+\.json$/.test(f));
+}
+
+function findSeLogerArrondissementFiles(dir) {
+  return fs.readdirSync(dir).filter(f => /^output-seloger-arr-\d+\.json$/.test(f));
 }
 
 function loadJson(filePath) {
@@ -120,18 +126,47 @@ async function main() {
   const mainData = loadJson(mainDataPath);
 
   const suburbFiles = findSeLogerSuburbFiles(artifactsDir);
+  const arrFiles = findSeLogerArrondissementFiles(artifactsDir);
   console.log(`Found ${suburbFiles.length} SeLoger suburb result file(s): ${suburbFiles.join(', ') || '(none)'}`);
+  console.log(`Found ${arrFiles.length} SeLoger arrondissement result file(s): ${arrFiles.join(', ') || '(none)'}`);
 
   const allListings = [...mainData.listings];
   const allSourceStatus = [...mainData.sourceStatus];
+  // Dedup by URL: the all-Paris search and per-arrondissement searches can
+  // both surface the SAME listing — without this, that listing would be
+  // double-counted in the final total.
+  const seenUrls = new Set(allListings.map(l => l.url));
 
   for (const file of suburbFiles) {
     const result = loadJson(path.join(artifactsDir, file));
     if (result.error) {
       allSourceStatus.push({ source: `SeLoger-Suburb-${result.slug}`, found: 0, error: result.error });
     } else {
-      allListings.push(...result.listings);
-      allSourceStatus.push({ source: `SeLoger-Suburb-${result.slug}`, found: result.listings.length, error: null });
+      let added = 0;
+      for (const listing of result.listings) {
+        if (seenUrls.has(listing.url)) continue;
+        seenUrls.add(listing.url);
+        allListings.push(listing);
+        added++;
+      }
+      allSourceStatus.push({ source: `SeLoger-Suburb-${result.slug}`, found: added, error: null });
+    }
+  }
+
+  for (const file of arrFiles) {
+    const result = loadJson(path.join(artifactsDir, file));
+    const label = `SeLoger-Paris-${result.arrondissement}e`;
+    if (result.error) {
+      allSourceStatus.push({ source: label, found: 0, error: result.error });
+    } else {
+      let added = 0;
+      for (const listing of result.listings) {
+        if (seenUrls.has(listing.url)) continue;
+        seenUrls.add(listing.url);
+        allListings.push(listing);
+        added++;
+      }
+      allSourceStatus.push({ source: label, found: added, error: null });
     }
   }
 
