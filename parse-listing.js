@@ -28,11 +28,38 @@ function parseListing(rawText) {
   // ---- PRICE -----------------------------------------------------------
   let price = 0;
 
+  // PRICE_NUMBER requires PROPERLY grouped digits: 1-3 digits, then zero
+  // or more groups of EXACTLY 3 digits separated by space/period/comma.
+  // Real bug found via Book-a-Flat: the old pattern (\d[\d\s.,]*\d)
+  // allowed ANY amount of internal whitespace, so "92 1131 €/MONTH" (a
+  // department code "92" sitting directly next to the real price "1131",
+  // no separator between them) got fused into "921131". Requiring exactly
+  // 3-digit subsequent groups rejects that fusion (since "1131" is 4
+  // digits, not a valid group) while still matching real thousands
+  // groupings like "12 000", "17,000", "1 131".
+  // PRICE_NUMBER accepts EITHER a plain digit run with no internal
+  // separators ("50000") OR a properly-grouped number ("12 000",
+  // "17,000") — but NOT an improperly-fused pair like "92 1131" (a
+  // department code sitting right next to a price with a space but no
+  // valid 3-digit grouping). A real regression was caught while fixing
+  // this: requiring ONLY the grouped form broke plain numbers like
+  // "50000 €/MONTH" (Book-a-Flat's actual format) entirely.
+  //
+  // IMPORTANT: the separator is a literal space (" "), NOT the general
+  // \s whitespace class. A second real bug was found via Perenium: \s
+  // matches newlines too, so "...17.13 m2\n825 €..." (the trailing "2" of
+  // "m2", a genuine line break, then the real price "825" on the next
+  // line) satisfied the grouping pattern as "2\n825" — treating a line
+  // break between two completely unrelated numbers as a thousands
+  // separator. Real separators are always same-line.
+  const PRICE_NUMBER = '(?:\\d{1,3}(?:[ .,]\\d{3})+|\\d+)';
+  const NO_DIGIT_BEFORE = '(?<!\\d)';
+
   if (!isPriceOnRequest) {
-    const rentAfter = text.match(/(\d[\d\s.,]*\d|\d)\s*€\s*\/\s*(mois|month)/i);
-    const rentBefore = text.match(/€\s*(\d[\d\s.,]*\d|\d)\s*\/\s*(mois|month)/i);
-    const saleAfter = text.match(/(\d[\d\s.,]*\d|\d)\s*€(?!\s*\d)/);
-    const saleBefore = text.match(/€\s*(\d[\d\s.,]*\d|\d)(?!\s*(?:AED|\$|USD|CHF|£|₪|¥))/i);
+    const rentAfter = text.match(new RegExp(`${NO_DIGIT_BEFORE}(${PRICE_NUMBER})\\s*€\\s*\\/\\s*(mois|month)`, 'i'));
+    const rentBefore = text.match(new RegExp(`€\\s*${NO_DIGIT_BEFORE}(${PRICE_NUMBER})\\s*\\/\\s*(mois|month)`, 'i'));
+    const saleAfter = text.match(new RegExp(`${NO_DIGIT_BEFORE}(${PRICE_NUMBER})\\s*€(?!\\s*\\d)`));
+    const saleBefore = text.match(new RegExp(`€\\s*${NO_DIGIT_BEFORE}(${PRICE_NUMBER})(?!\\s*(?:AED|\\$|USD|CHF|£|₪|¥))`, 'i'));
 
     const toInt = (s) => parseInt(s.replace(/[\s.,]/g, ''), 10);
 
@@ -72,7 +99,13 @@ function parseListing(rawText) {
     address = parisMatch[0];
   } else {
     const addressPatterns = [
-      /(\d+\s+(?:rue|avenue|boulevard|place|square|allée|chemin|quai)[^,\n|]*)/i,
+      // Negative lookbehind (?<![a-zA-Z]) added after a real bug: without
+      // it, "16M2 rue Gutenberg" matched starting at the trailing "2" in
+      // "M2" (mistaking it for a house number), swallowing almost the
+      // entire rest of the raw text as the "address". Requiring the
+      // digit NOT be preceded by a letter rejects that false match while
+      // still matching genuine house numbers like "5 rue de la Paix".
+      /(?<![a-zA-Z])(\d+\s+(?:rue|avenue|boulevard|place|square|allée|chemin|quai)[^,\n|]*)/i,
       /(\b7\d{4}\b[^,\n|]*)/
     ];
     for (const pattern of addressPatterns) {
