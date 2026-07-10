@@ -37,19 +37,19 @@ const TOWN_CONCURRENCY = 1;
 // { slug, postalCode, geoCode } — geoCode individually verified live for
 // every entry, not derived from a pattern.
 const SUBURB_TOWNS = [
-  { slug: 'neuilly-sur-seine', postal: '92200', geoCode: 'ad08fr36623' },
-  { slug: 'boulogne-billancourt', postal: '92100', geoCode: 'ad08fr36603' },
-  { slug: 'suresnes', postal: '92150', geoCode: 'ad08fr36630' },
-  { slug: 'levallois-perret', postal: '92300', geoCode: 'ad08fr36617' },
-  { slug: 'rueil-malmaison', postal: '92500', geoCode: 'ad08fr36626' },
-  { slug: 'puteaux', postal: '92800', geoCode: 'ad08fr36625' },
-  { slug: 'saint-cloud', postal: '92210', geoCode: 'ad08fr36627' },
-  { slug: 'saint-germain-en-laye', postal: '78100', geoCode: 'ad08fr37122' },
-  { slug: 'le-vesinet', postal: '78110', geoCode: 'ad08fr32613' },
-  { slug: 'vaucresson', postal: '92420', geoCode: 'ad08fr36632' },
-  { slug: 'garches', postal: '92380', geoCode: 'ad08fr36613' },
-  { slug: 'marnes-la-coquette', postal: '92430', geoCode: 'ad08fr36619' },
-  { slug: 'ville-d-avray', postal: '92410', geoCode: 'ad08fr36633' }
+  { slug: 'neuilly-sur-seine', postal: '92200', geoCode: 'ad08fr36623', displayName: 'Neuilly-sur-Seine' },
+  { slug: 'boulogne-billancourt', postal: '92100', geoCode: 'ad08fr36603', displayName: 'Boulogne-Billancourt' },
+  { slug: 'suresnes', postal: '92150', geoCode: 'ad08fr36630', displayName: 'Suresnes' },
+  { slug: 'levallois-perret', postal: '92300', geoCode: 'ad08fr36617', displayName: 'Levallois-Perret' },
+  { slug: 'rueil-malmaison', postal: '92500', geoCode: 'ad08fr36626', displayName: 'Rueil-Malmaison' },
+  { slug: 'puteaux', postal: '92800', geoCode: 'ad08fr36625', displayName: 'Puteaux' },
+  { slug: 'saint-cloud', postal: '92210', geoCode: 'ad08fr36627', displayName: 'Saint-Cloud' },
+  { slug: 'saint-germain-en-laye', postal: '78100', geoCode: 'ad08fr37122', displayName: 'Saint-Germain-en-Laye' },
+  { slug: 'le-vesinet', postal: '78110', geoCode: 'ad08fr32613', displayName: 'Le Vésinet' },
+  { slug: 'vaucresson', postal: '92420', geoCode: 'ad08fr36632', displayName: 'Vaucresson' },
+  { slug: 'garches', postal: '92380', geoCode: 'ad08fr36613', displayName: 'Garches' },
+  { slug: 'marnes-la-coquette', postal: '92430', geoCode: 'ad08fr36619', displayName: 'Marnes-la-Coquette' },
+  { slug: 'ville-d-avray', postal: '92410', geoCode: 'ad08fr36633', displayName: "Ville-d'Avray" }
 ];
 
 async function getBrowser() {
@@ -74,6 +74,19 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
+// Extracts the page's own stated listing count from its title/heading —
+// e.g. "2 annonces appartements à louer Marnes-la-Coquette 92430" or
+// "173 annonces Appartements à louer Puteaux 92800". This is used as a
+// self-correcting cap: real evidence showed a sparse town (Marnes-la-
+// Coquette, genuinely 2 listings) had its results padded to 32 by
+// SeLoger's own "Plus d'annonces à proximité" (more listings nearby)
+// filler section, which shows suggested listings from NEIGHBORING towns
+// directly on the same page when a search has few genuine matches. Our
+// selector can't distinguish "genuine local match" from "nearby filler"
+// by DOM structure alone, but the page's own stated count gives ground
+// truth — capping to it (keeping the first N in DOM order, since filler
+// content consistently appears after genuine results in every case
+// checked) removes the contamination without needing per-town DOM work.
 function extractListings() {
   const results = [];
   const seen = new Set();
@@ -98,6 +111,17 @@ function extractListings() {
     }
   }
 
+  // FIXED — same real Puppeteer serialization bug found across all 3
+  // SeLoger scrapers: page.evaluate(extractListings) only sends THIS
+  // function's own source into the browser, not a separate
+  // extractStatedCount() function it referenced. Inlined here.
+  const titleText = document.title + ' ' + (document.querySelector('h1') ? document.querySelector('h1').innerText : '');
+  const countMatch = titleText.match(/(\d[\d\s]*)\s*annonces/i);
+  const statedCount = countMatch ? parseInt(countMatch[1].replace(/\s/g, ''), 10) : null;
+
+  if (statedCount !== null && statedCount < results.length) {
+    return results.slice(0, statedCount);
+  }
   return results;
 }
 
@@ -185,6 +209,13 @@ async function scrapeTown(town, searchType) {
       listing.source = 'SeLoger';
       listing.searchType = searchType;
       listing.isExactListing = true;
+      // Override the parsed address with the KNOWN town name — we already
+      // know exactly which town this is (it's the URL we chose), so this
+      // is both more reliable and perfectly consistent than trying to
+      // re-derive it from noisy card text, which was shown to sometimes
+      // grab a floor number ("1 / 12"), postal code fragment, or agency
+      // name instead of a real location.
+      listing.address = town.displayName;
       return listing;
     });
     const valid = parsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
