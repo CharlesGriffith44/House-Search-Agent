@@ -15,6 +15,8 @@ const { scrapeSeLoger } = require('./seloger-scraper');
 const { scrapeJunot } = require('./junot-scraper');
 const { scrapeBarnesSuburbs } = require('./barnes-suburbs-scraper');
 const { scrapeSeLogerSuburbs } = require('./seloger-suburbs-scraper');
+const { scrapeBookAFlat } = require('./bookaflat-scraper');
+const { scrapePerenium } = require('./perenium-scraper');
 
 // Blanket timeout wrapper — catches a hang ANYWHERE inside a scraper
 // function, not just at browser launch. Real successful runs (both local
@@ -59,9 +61,9 @@ async function runSource(label, promiseFactory, results, sourceStatus) {
 }
 
 async function combineAllSources(searchType = 'rent', options = {}) {
-  const { fetchDetails = false, excludeSeLogerSuburbs = false, externalListings = [], externalSourceStatus = [] } = options;
-  const results = [...externalListings];
-  const sourceStatus = [...externalSourceStatus];
+  const { fetchDetails = false } = options;
+  const results = [];
+  const sourceStatus = [];
 
   await runSource('Barnes', () => scrapeBarnes(searchType, { fetchDetails }), results, sourceStatus);
   await runSource('Barnes-Suburbs', () => scrapeBarnesSuburbs(searchType), results, sourceStatus);
@@ -71,19 +73,21 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   // seloger-scraper.js and seloger-suburbs-scraper.js for why).
   if (searchType === 'rent') {
     await runSource('SeLoger', () => scrapeSeLoger(searchType), results, sourceStatus);
-    // SeLoger-Suburbs is excluded here when it's being run as separate
-    // isolated matrix jobs instead (see scrape-single-seloger-suburb.js) —
-    // each suburb gets its OWN GitHub Actions runner/session, testing
-    // whether SeLoger's anti-bot system is flagging the PATTERN of many
-    // distinct location searches within one session, not just volume.
-    if (!excludeSeLogerSuburbs) {
-      await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
-    }
+    await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
   } else {
     sourceStatus.push({ source: 'SeLoger', found: 0, error: 'Purchase not yet supported for SeLoger' });
-    if (!excludeSeLogerSuburbs) {
-      sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
-    }
+    sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
+  }
+
+  // Book-a-Flat and Perenium: both sites have "for sale" sections too, but
+  // only the rental search has been verified live — scoped rent-only
+  // rather than silently assuming the purchase side works the same way.
+  if (searchType === 'rent') {
+    await runSource('Book-a-Flat', () => scrapeBookAFlat(searchType), results, sourceStatus);
+    await runSource('Perenium', () => scrapePerenium(searchType), results, sourceStatus);
+  } else {
+    sourceStatus.push({ source: 'Book-a-Flat', found: 0, error: 'Purchase not yet verified for Book-a-Flat' });
+    sourceStatus.push({ source: 'Perenium', found: 0, error: 'Purchase not yet verified for Perenium' });
   }
 
   return {
