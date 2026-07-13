@@ -53,7 +53,18 @@ const SUBURB_TOWNS = [
 ];
 
 async function getBrowser() {
-  const puppeteer = require('puppeteer');
+  // Switched to puppeteer-extra + stealth plugin after real evidence of
+  // SeLoger's anti-bot system (DataDome) partially blocking even isolated,
+  // separately-run scraping jobs. This patches common headless-Chrome
+  // automation tells (navigator.webdriver, missing plugins, etc). Being
+  // realistic about this: published 2026 research shows DataDome
+  // specifically has detection methods for this exact plugin, and
+  // increasingly targets network/TLS-level fingerprints a JS-level patch
+  // can't reach at all — this is worth trying (free, addresses a real gap
+  // we hadn't touched), not a guaranteed fix.
+  const puppeteer = require('puppeteer-extra');
+  const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+  puppeteer.use(StealthPlugin());
   return withTimeout(
     puppeteer.launch({
       headless: true,
