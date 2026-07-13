@@ -101,10 +101,49 @@ jobs:
           path: output-seloger-arr-${{ matrix.arr }}.json
           retention-days: 1
 
-  # Downloads every artifact from all three jobs above, merges everything,
+  # Each ParisRental page gets its OWN isolated job — tried after the
+  # combined scraper returned 0 results specifically on GitHub Actions
+  # while working fine from a home network with identical code, pointing
+  # to GitHub's IP range itself being blocked. Not guaranteed to help
+  # (unlike SeLoger's session-pattern issue, this looks like a more
+  # straightforward IP block, which isolation may not fix since every
+  # isolated job still originates from the same GitHub IP range) — this
+  # is a genuine experiment, not a confirmed fix.
+  scrape-parisrental-page:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { category: furnished, page: 1 }
+          - { category: furnished, page: 2 }
+          - { category: furnished, page: 3 }
+          - { category: furnished, page: 4 }
+          - { category: furnished, page: 5 }
+          - { category: furnished, page: 6 }
+          - { category: furnished, page: 7 }
+          - { category: unfurnished, page: 1 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer
+      - name: Scrape ${{ matrix.category }} page ${{ matrix.page }} in isolation
+        run: node scrape-single-parisrental-page.js ${{ matrix.category }} ${{ matrix.page }}
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-parisrental-${{ matrix.category }}-${{ matrix.page }}
+          path: output-parisrental-${{ matrix.category }}-${{ matrix.page }}.json
+          retention-days: 1
+
+  # Downloads every artifact from all four jobs above, merges everything,
   # and writes/commits the final Excel file.
   merge-and-commit:
-    needs: [scrape-main, scrape-seloger-suburb, scrape-seloger-arrondissement]
+    needs: [scrape-main, scrape-seloger-suburb, scrape-seloger-arrondissement, scrape-parisrental-page]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
