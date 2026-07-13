@@ -17,6 +17,8 @@ const { scrapeBarnesSuburbs } = require('./barnes-suburbs-scraper');
 const { scrapeSeLogerSuburbs } = require('./seloger-suburbs-scraper');
 const { scrapeBookAFlat } = require('./bookaflat-scraper');
 const { scrapePerenium } = require('./perenium-scraper');
+const { scrapeParisRental } = require('./parisrental-scraper');
+const { scrapeDanielFeau } = require('./danielfeau-scraper');
 
 // Blanket timeout wrapper — catches a hang ANYWHERE inside a scraper
 // function, not just at browser launch. Real successful runs (both local
@@ -93,15 +95,20 @@ async function combineAllSources(searchType = 'rent', options = {}) {
     }
   }
 
-  // Book-a-Flat and Perenium: both sites have "for sale" sections too, but
-  // only the rental search has been verified live — scoped rent-only
-  // rather than silently assuming the purchase side works the same way.
+  // Book-a-Flat, Perenium, ParisRental, DanielFeau: all four sites have
+  // "for sale" sections too, but only the rental search has been verified
+  // live for each — scoped rent-only rather than silently assuming the
+  // purchase side works the same way.
   if (searchType === 'rent') {
     await runSource('Book-a-Flat', () => scrapeBookAFlat(searchType), results, sourceStatus);
     await runSource('Perenium', () => scrapePerenium(searchType), results, sourceStatus);
+    await runSource('ParisRental', () => scrapeParisRental(searchType), results, sourceStatus);
+    await runSource('DanielFeau', () => scrapeDanielFeau(searchType), results, sourceStatus);
   } else {
     sourceStatus.push({ source: 'Book-a-Flat', found: 0, error: 'Purchase not yet verified for Book-a-Flat' });
     sourceStatus.push({ source: 'Perenium', found: 0, error: 'Purchase not yet verified for Perenium' });
+    sourceStatus.push({ source: 'ParisRental', found: 0, error: 'Purchase not yet verified for ParisRental' });
+    sourceStatus.push({ source: 'DanielFeau', found: 0, error: 'Purchase not yet verified for DanielFeau' });
   }
 
   return {
