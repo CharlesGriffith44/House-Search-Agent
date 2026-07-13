@@ -21,19 +21,19 @@
 const parseListing = require('./parse-listing');
 
 const SUBURB_TOWNS = [
-  { slug: 'neuilly-sur-seine', postal: '92200' },
-  { slug: 'boulogne-billancourt', postal: '92100' },
-  { slug: 'suresnes', postal: '92150' },
-  { slug: 'levallois-perret', postal: '92300' },
-  { slug: 'rueil-malmaison', postal: '92500' },
-  { slug: 'puteaux', postal: '92800' },
-  { slug: 'saint-cloud', postal: '92210' },
-  { slug: 'saint-germain-en-laye', postal: '78100' },
-  { slug: 'le-vesinet', postal: '78110' },
-  { slug: 'vaucresson', postal: '92420' },
-  { slug: 'garches', postal: '92380' },
-  { slug: 'marnes-la-coquette', postal: '92430' },
-  { slug: 'ville-d-avray', postal: '92410' }
+  { slug: 'neuilly-sur-seine', postal: '92200', displayName: 'Neuilly-sur-Seine' },
+  { slug: 'boulogne-billancourt', postal: '92100', displayName: 'Boulogne-Billancourt' },
+  { slug: 'suresnes', postal: '92150', displayName: 'Suresnes' },
+  { slug: 'levallois-perret', postal: '92300', displayName: 'Levallois-Perret' },
+  { slug: 'rueil-malmaison', postal: '92500', displayName: 'Rueil-Malmaison' },
+  { slug: 'puteaux', postal: '92800', displayName: 'Puteaux' },
+  { slug: 'saint-cloud', postal: '92210', displayName: 'Saint-Cloud' },
+  { slug: 'saint-germain-en-laye', postal: '78100', displayName: 'Saint-Germain-en-Laye' },
+  { slug: 'le-vesinet', postal: '78110', displayName: 'Le Vésinet' },
+  { slug: 'vaucresson', postal: '92420', displayName: 'Vaucresson' },
+  { slug: 'garches', postal: '92380', displayName: 'Garches' },
+  { slug: 'marnes-la-coquette', postal: '92430', displayName: 'Marnes-la-Coquette' },
+  { slug: 'ville-d-avray', postal: '92410', displayName: "Ville-d'Avray" }
 ];
 
 const LISTING_SELECTOR = 'a[href*="/ref-"]';
@@ -42,10 +42,18 @@ const MAX_LISTINGS_PER_TOWN = 100;
 const MAX_PAGE_CLICKS = 10;
 const TOWN_CONCURRENCY = 2; // kept modest given the earlier nested-concurrency lesson from SeLoger-suburbs
 
-function extractListings() {
+function extractListings(townSlug) {
   const results = [];
   const seen = new Set();
-  const links = Array.from(document.querySelectorAll('a[href*="/ref-"]'));
+  // Tightened after finding Marseille/Lyon/Lille (other French cities) AND
+  // Dubai/Athens/London etc. all bleeding in via Barnes' apparent "you
+  // might also like" carousel — the generic /france/ filter wasn't
+  // precise enough. Since we already know exactly which town we're
+  // scraping, requiring that EXACT slug in the URL is far more precise:
+  // it excludes every other city/country AND cross-contamination from a
+  // different suburb town's own carousel suggestions.
+  const links = Array.from(document.querySelectorAll('a[href*="/ref-"]'))
+    .filter(l => l.href.includes('/france/' + townSlug));
 
   for (const link of links) {
     const href = link.href;
@@ -76,7 +84,7 @@ async function countUniqueListings(page) {
   }, LISTING_SELECTOR);
 }
 
-async function collectWithPagination(page) {
+async function collectWithPagination(page, townSlug) {
   let previousCount = 0;
   let clicks = 0;
 
@@ -114,7 +122,7 @@ async function collectWithPagination(page) {
     clicks++;
   }
 
-  return page.evaluate(extractListings);
+  return page.evaluate(extractListings, townSlug);
 }
 
 async function mapWithConcurrency(items, limit, fn) {
@@ -150,7 +158,7 @@ async function scrapeTown(browser, town, searchType) {
       // Genuinely zero listings for this town today — expected occasionally.
     }
 
-    const raw = await collectWithPagination(page);
+    const raw = await collectWithPagination(page, town.slug);
     await page.close();
     // Defensive cap: a live run showed one town (Ville-d'Avray) returning
     // 120 listings — 5-10x every other town in this batch, and unexplained.
@@ -194,12 +202,17 @@ async function scrapeBarnesSuburbs(searchType = 'rent') {
     for (const r of results) {
       if (r.error) { failedSlugs.push(`${r.slug} (${r.error})`); continue; }
       if (r.listings.length === 0) { zeroResultCount++; continue; }
+      const town = SUBURB_TOWNS.find(t => t.slug === r.slug);
       for (const item of r.listings) {
         const listing = parseListing(item.rawText);
         listing.url = item.url;
         listing.source = 'Barnes';
         listing.searchType = searchType;
         listing.isExactListing = true;
+        // Override with the known town — same fix applied to SeLoger's
+        // suburb/arrondissement scrapers, for consistency across sources
+        // and reliability over re-deriving location from noisy card text.
+        if (town) listing.address = town.displayName;
         allListings.push(listing);
       }
     }
