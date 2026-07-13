@@ -157,4 +157,61 @@ async function scrapeParisRental(searchType = 'rent') {
   }
 }
 
-module.exports = { scrapeParisRental };
+// Scrapes exactly ONE page of ONE category, in complete isolation (own
+// browser launch) — meant to run as its own separate GitHub Actions job.
+// Built after the combined scraper kept returning 0 results specifically
+// on GitHub Actions (while working fine from a home network with the
+// identical code) — strong evidence GitHub's IP range itself is being
+// blocked, not a code bug. Isolating each page the same way that fixed
+// SeLoger's suburbs/arrondissements is worth trying, though it's not
+// guaranteed to help here: SeLoger's issue looked like session-pattern
+// detection (fixed by isolation), while this one looks more like a
+// straightforward IP block (which isolation may not fix at all, since
+// every isolated job still originates from the same GitHub IP range).
+async function scrapeSinglePage(categoryName, pageNum, searchType = 'rent') {
+  const category = CATEGORIES.find(c => c.name === categoryName);
+  if (!category) {
+    return { category: categoryName, page: pageNum, listings: [], error: `Unknown category: ${categoryName}` };
+  }
+
+  let browser;
+  let page;
+  try {
+    browser = await getBrowser();
+    page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setDefaultNavigationTimeout(20000);
+    const url = pageNum === 1 ? category.baseUrl : `${category.baseUrl}?page=${pageNum}`;
+
+    console.log(`[ParisRental-${categoryName}-${pageNum}] Navigating to ${url}`);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+
+    try {
+      await page.waitForSelector(`a[href*="${category.linkPrefix}"]`, { timeout: 10000 });
+    } catch (e) {
+      console.log(`[ParisRental-${categoryName}-${pageNum}] No listings found — genuinely empty page, or still blocked.`);
+    }
+
+    const raw = await page.evaluate(extractListings, category.linkPrefix);
+    const listings = raw.map(item => {
+      const listing = parseListing(item.rawText);
+      listing.url = item.url;
+      listing.source = 'ParisRental';
+      listing.searchType = searchType;
+      listing.isExactListing = true;
+      return listing;
+    });
+
+    await page.close();
+    await browser.close();
+    console.log(`[ParisRental-${categoryName}-${pageNum}] Found ${listings.length} listings`);
+    return { category: categoryName, page: pageNum, listings, error: null };
+
+  } catch (error) {
+    if (page) { try { await page.close(); } catch (e) {} }
+    if (browser) { try { await browser.close(); } catch (e) {} }
+    return { category: categoryName, page: pageNum, listings: [], error: error.message };
+  }
+}
+
+module.exports = { scrapeParisRental, scrapeSinglePage, CATEGORIES };
