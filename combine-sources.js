@@ -61,9 +61,9 @@ async function runSource(label, promiseFactory, results, sourceStatus) {
 }
 
 async function combineAllSources(searchType = 'rent', options = {}) {
-  const { fetchDetails = false } = options;
-  const results = [];
-  const sourceStatus = [];
+  const { fetchDetails = false, excludeSeLogerSuburbs = false, externalListings = [], externalSourceStatus = [] } = options;
+  const results = [...externalListings];
+  const sourceStatus = [...externalSourceStatus];
 
   await runSource('Barnes', () => scrapeBarnes(searchType, { fetchDetails }), results, sourceStatus);
   await runSource('Barnes-Suburbs', () => scrapeBarnesSuburbs(searchType), results, sourceStatus);
@@ -71,12 +71,26 @@ async function combineAllSources(searchType = 'rent', options = {}) {
 
   // SeLoger and its suburbs: rent only for now (first page only, see
   // seloger-scraper.js and seloger-suburbs-scraper.js for why).
+  //
+  // excludeSeLogerSuburbs: RESTORED after a real regression — this option
+  // existed in an earlier version (built for the matrix-job architecture,
+  // where SeLoger-Suburbs runs as separate isolated GitHub Actions jobs
+  // instead of within this combined process) but was accidentally lost
+  // when Book-a-Flat/Perenium got wired in from an older file copy that
+  // predated this option. scrape-main-sources.js has been correctly
+  // passing excludeSeLogerSuburbs: true this whole time — it just had
+  // nothing to act on it, so SeLoger-Suburbs kept running unconditionally
+  // inside scrape-main using the old single-process code.
   if (searchType === 'rent') {
     await runSource('SeLoger', () => scrapeSeLoger(searchType), results, sourceStatus);
-    await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
+    if (!excludeSeLogerSuburbs) {
+      await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
+    }
   } else {
     sourceStatus.push({ source: 'SeLoger', found: 0, error: 'Purchase not yet supported for SeLoger' });
-    sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
+    if (!excludeSeLogerSuburbs) {
+      sourceStatus.push({ source: 'SeLoger-Suburbs', found: 0, error: 'Purchase not yet supported for SeLoger' });
+    }
   }
 
   // Book-a-Flat and Perenium: both sites have "for sale" sections too, but
