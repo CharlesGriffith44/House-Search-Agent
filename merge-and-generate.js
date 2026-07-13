@@ -19,6 +19,10 @@ function findSeLogerArrondissementFiles(dir) {
   return fs.readdirSync(dir).filter(f => /^output-seloger-arr-\d+\.json$/.test(f));
 }
 
+function findParisRentalFiles(dir) {
+  return fs.readdirSync(dir).filter(f => /^output-parisrental-.+\.json$/.test(f));
+}
+
 function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -127,8 +131,10 @@ async function main() {
 
   const suburbFiles = findSeLogerSuburbFiles(artifactsDir);
   const arrFiles = findSeLogerArrondissementFiles(artifactsDir);
+  const parisRentalFiles = findParisRentalFiles(artifactsDir);
   console.log(`Found ${suburbFiles.length} SeLoger suburb result file(s): ${suburbFiles.join(', ') || '(none)'}`);
   console.log(`Found ${arrFiles.length} SeLoger arrondissement result file(s): ${arrFiles.join(', ') || '(none)'}`);
+  console.log(`Found ${parisRentalFiles.length} ParisRental category result file(s): ${parisRentalFiles.join(', ') || '(none)'}`);
 
   const allListings = [...mainData.listings];
   const allSourceStatus = [...mainData.sourceStatus];
@@ -156,6 +162,23 @@ async function main() {
   for (const file of arrFiles) {
     const result = loadJson(path.join(artifactsDir, file));
     const label = `SeLoger-Paris-${result.arrondissement}e`;
+    if (result.error) {
+      allSourceStatus.push({ source: label, found: 0, error: result.error });
+    } else {
+      let added = 0;
+      for (const listing of result.listings) {
+        if (seenUrls.has(listing.url)) continue;
+        seenUrls.add(listing.url);
+        allListings.push(listing);
+        added++;
+      }
+      allSourceStatus.push({ source: label, found: added, error: null });
+    }
+  }
+
+  for (const file of parisRentalFiles) {
+    const result = loadJson(path.join(artifactsDir, file));
+    const label = `ParisRental-${result.category}`;
     if (result.error) {
       allSourceStatus.push({ source: label, found: 0, error: result.error });
     } else {
