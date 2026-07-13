@@ -37,7 +37,18 @@ const LISTING_SELECTOR = 'a[href*="/annonces/locations/"]';
 const DETAIL_FETCH_CONCURRENCY = 3;
 
 async function getBrowser() {
-  const puppeteer = require('puppeteer');
+  // Switched to puppeteer-extra + stealth plugin after real evidence of
+  // SeLoger's anti-bot system (DataDome) partially blocking even isolated,
+  // separately-run scraping jobs. This patches common headless-Chrome
+  // automation tells (navigator.webdriver, missing plugins, etc). Being
+  // realistic about this: published 2026 research shows DataDome
+  // specifically has detection methods for this exact plugin, and
+  // increasingly targets network/TLS-level fingerprints a JS-level patch
+  // can't reach at all — this is worth trying (free, addresses a real gap
+  // we hadn't touched), not a guaranteed fix.
+  const puppeteer = require('puppeteer-extra');
+  const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+  puppeteer.use(StealthPlugin());
   return withTimeout(
     puppeteer.launch({
       headless: true,
@@ -84,6 +95,22 @@ function extractListings() {
     }
   }
 
+  // FIXED — this used to call a separate extractStatedCount() function,
+  // which caused a real crash: page.evaluate(extractListings) only sends
+  // THIS function's own source into the browser, not any other function
+  // it references from the same file. Inlined directly here so the whole
+  // thing is one self-contained function, no cross-function reference.
+  const titleText = document.title + ' ' + (document.querySelector('h1') ? document.querySelector('h1').innerText : '');
+  const countMatch = titleText.match(/(\d[\d\s]*)\s*annonces/i);
+  const statedCount = countMatch ? parseInt(countMatch[1].replace(/\s/g, ''), 10) : null;
+
+  // Defensive: same fix applied to seloger-suburbs-scraper.js after real
+  // evidence of "nearby suggestions" filler inflating sparse-result towns.
+  // A no-op for Paris in practice (real inventory always exceeds one
+  // page's worth), but keeps both scrapers consistent.
+  if (statedCount !== null && statedCount < results.length) {
+    return results.slice(0, statedCount);
+  }
   return results;
 }
 
