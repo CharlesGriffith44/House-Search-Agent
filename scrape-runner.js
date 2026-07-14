@@ -187,6 +187,7 @@ async function fetchListingDetails(browser, url, attempt = 1) {
   let page;
   try {
     page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
@@ -265,6 +266,8 @@ async function scrapeBarnes(searchType, options = {}) {
     console.log(`✅ Connected to browser (${conn.mode} mode)`);
 
     page = await browser.newPage();
+
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(30000);
     await page.setDefaultTimeout(30000);
 
