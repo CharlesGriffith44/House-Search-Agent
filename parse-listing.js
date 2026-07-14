@@ -92,8 +92,12 @@ function parseListing(rawText) {
   const bathrooms = bathroomsMatch ? parseInt(bathroomsMatch[1], 10) : null;
 
   // ---- SURFACE -------------------------------------------------------------
-  const sqmMatch = text.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*m(?:²|2)\b(?!\w)/i) ||
-                    text.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*m(?:²|2)/i);
+  // Added 'sqm' after finding Eiffel Housing uses this English
+  // abbreviation exclusively ("263 sqm") — the old pattern only
+  // recognized 'm²'/'m2', silently returning null for every listing from
+  // this source.
+  const sqmMatch = text.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*(?:m²|m2|sqm)\b(?!\w)/i) ||
+                    text.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*(?:m²|m2|sqm)/i);
   const sqm = sqmMatch ? parseFloat(sqmMatch[1].replace(/\s/g, '').replace(',', '.')) : null;
 
   // ---- ADDRESS / ARRONDISSEMENT --------------------------------------------
@@ -104,9 +108,17 @@ function parseListing(rawText) {
   // listing badge ("EXCLUSIVITÉ") or property type ("APPARTEMENT"), not a
   // location at all.
   let address = '';
-  const parisMatch = text.match(/Paris\s*\d{1,2}(?:er|ème|eme|e|th|st|nd|rd)\b/i);
+  // Split into two alternatives: WITH a suffix (er/ème/th/etc), the
+  // ordinal is already confirmed complete, no extra guard needed. WITHOUT
+  // a suffix (Eiffel Housing's bare "Paris 16"), guard against more
+  // digits following — that's what distinguishes a genuine bare
+  // arrondissement from "Paris" sitting next to an unrelated price like
+  // "Paris 2 200 €". Combining both cases into one optional-suffix regex
+  // caused a real regression: the guard incorrectly also blocked
+  // suffixed cases like "1er" when a price happened to follow.
+  const parisMatch = text.match(/Paris\s*\d{1,2}\s*(?:er|ème|eme|e|th|st|nd|rd)\b|Paris\s*\d{1,2}(?!\s*\d)\b/i);
   if (parisMatch) {
-    address = parisMatch[0];
+    address = parisMatch[0].trim();
   } else {
     const addressPatterns = [
       // Negative lookbehind (?<![a-zA-Z]) added after a real bug: without
@@ -232,7 +244,20 @@ function extractDetailFeatures(pageText) {
     bathroomsFromDetail = parseInt(bathMatch[1], 10);
   }
 
-  return { elevator, balcony, furnished, bathroomsFromDetail };
+  // Bedroom count from the fuller detail-page description. Real evidence:
+  // SeLoger listings very commonly state BOTH pièces (total rooms) and
+  // chambres (bedrooms specifically) explicitly in their full
+  // description — e.g. "6 pièces - 4 chambres", "5 pièces (3 chambres)"
+  // — even when the shorter summary-card text only shows the pièces
+  // count. This lets us fill in a real bedroom count for sources where
+  // the summary alone was ambiguous between total rooms and bedrooms.
+  let bedroomsFromDetail = null;
+  const bedroomDetailMatch = text.match(/(\d+)\s*(?:chambres?|bedrooms?)(?![a-zA-Z])/i);
+  if (bedroomDetailMatch) {
+    bedroomsFromDetail = parseInt(bedroomDetailMatch[1], 10);
+  }
+
+  return { elevator, balcony, furnished, bathroomsFromDetail, bedroomsFromDetail };
 }
 
 module.exports = parseListing;
