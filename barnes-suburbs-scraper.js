@@ -143,6 +143,7 @@ async function scrapeTown(browser, town, searchType) {
   let page;
   try {
     page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
     const urlBase = searchType === 'purchase'
       ? 'https://www.barnes-international.com/en/for-sale/france/'
