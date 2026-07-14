@@ -335,7 +335,7 @@
       <input type="number" id="max-price" placeholder="No limit">
     </div>
     <div class="filter-field">
-      <label for="rooms-select">Rooms</label>
+      <label for="rooms-select">Bedrooms</label>
       <select id="rooms-select">
         <option value="">Any</option>
         <option value="1">1+</option>
@@ -344,6 +344,23 @@
         <option value="4">4+</option>
         <option value="5">5+</option>
       </select>
+    </div>
+    <div class="filter-field">
+      <label for="bathrooms-select">Bathrooms</label>
+      <select id="bathrooms-select">
+        <option value="">Any</option>
+        <option value="1">1+</option>
+        <option value="2">2+</option>
+        <option value="3">3+</option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <label for="min-sqm">Min m²</label>
+      <input type="number" id="min-sqm" placeholder="0">
+    </div>
+    <div class="filter-field">
+      <label for="max-sqm">Max m²</label>
+      <input type="number" id="max-sqm" placeholder="No limit">
     </div>
     <div class="filter-field">
       <label>Amenities</label>
@@ -362,7 +379,8 @@
       <tr>
         <th data-key="source">Agency</th>
         <th data-key="price">Price (€)</th>
-        <th data-key="rooms">Rooms</th>
+        <th data-key="bedrooms">Bedrooms</th>
+        <th data-key="bathrooms">Bathrooms</th>
         <th data-key="sqm">m²</th>
         <th data-key="area">Area</th>
         <th data-key="address">Address (raw)</th>
@@ -392,7 +410,7 @@
   const ARR_COUNT = 20;
   const state = {
     listings: [],
-    filters: { area: null, source: '', minPrice: null, maxPrice: null, rooms: null, elevator: false, furnished: false, balcony: false, search: '' },
+    filters: { area: null, source: '', minPrice: null, maxPrice: null, bedrooms: null, bathrooms: null, minSqm: null, maxSqm: null, elevator: false, furnished: false, balcony: false, search: '' },
     sort: { key: 'price', dir: 'asc' }
   };
 
@@ -473,7 +491,10 @@
     if (f.source && listing.source !== f.source) return false;
     if (f.minPrice != null && (!listing.price || listing.price < f.minPrice)) return false;
     if (f.maxPrice != null && listing.price && listing.price > f.maxPrice) return false;
-    if (f.rooms != null && (!listing.rooms || listing.rooms < f.rooms)) return false;
+    if (f.bedrooms != null && (!listing.bedrooms || listing.bedrooms < f.bedrooms)) return false;
+    if (f.bathrooms != null && (!listing.bathrooms || listing.bathrooms < f.bathrooms)) return false;
+    if (f.minSqm != null && (!listing.sqm || listing.sqm < f.minSqm)) return false;
+    if (f.maxSqm != null && listing.sqm && listing.sqm > f.maxSqm) return false;
     if (f.elevator && listing.elevator !== true) return false;
     if (f.furnished && listing.furnished !== true) return false;
     if (f.balcony && listing.balcony !== true) return false;
@@ -528,7 +549,8 @@
       <tr>
         <td><span class="source-tag">${l.source || ''}</span></td>
         <td class="price-cell">${l.priceOnRequest ? 'On request' : (l.price ? l.price.toLocaleString() : '—')}</td>
-        <td>${l.rooms ?? '—'}</td>
+        <td>${l.bedrooms ?? '—'}</td>
+        <td>${l.bathrooms ?? '—'}</td>
         <td>${l.sqm ?? '—'}</td>
         <td>${(l.normalizedArea && l.normalizedArea.area) || '—'}</td>
         <td>${l.address || ''}</td>
@@ -545,7 +567,10 @@
     document.getElementById('source-select').addEventListener('change', e => { state.filters.source = e.target.value; render(); });
     document.getElementById('min-price').addEventListener('input', e => { state.filters.minPrice = e.target.value ? Number(e.target.value) : null; render(); });
     document.getElementById('max-price').addEventListener('input', e => { state.filters.maxPrice = e.target.value ? Number(e.target.value) : null; render(); });
-    document.getElementById('rooms-select').addEventListener('change', e => { state.filters.rooms = e.target.value ? Number(e.target.value) : null; render(); });
+    document.getElementById('rooms-select').addEventListener('change', e => { state.filters.bedrooms = e.target.value ? Number(e.target.value) : null; render(); });
+    document.getElementById('bathrooms-select').addEventListener('change', e => { state.filters.bathrooms = e.target.value ? Number(e.target.value) : null; render(); });
+    document.getElementById('min-sqm').addEventListener('input', e => { state.filters.minSqm = e.target.value ? Number(e.target.value) : null; render(); });
+    document.getElementById('max-sqm').addEventListener('input', e => { state.filters.maxSqm = e.target.value ? Number(e.target.value) : null; render(); });
 
     document.querySelectorAll('.toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
