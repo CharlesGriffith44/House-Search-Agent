@@ -59,7 +59,16 @@ function normalizeArea(rawAddress) {
   // arrondissement" forms that don't have "Paris" directly attached to
   // the number in the same way.
   const arrPatterns = [
-    /paris\s*(\d{1,2})\s*(?:er|ème|eme|e|th|st|nd|rd)\b/i,
+    // Suffix made optional after finding Eiffel Housing writes bare
+    // "Paris 16" with no ordinal suffix at all — the trailing \b still
+    // protects against false matches on longer unrelated numbers (e.g.
+    // "Paris 16234" stops at "16" then fails the boundary check, since
+    // "6" to "2" isn't a boundary).
+    // Split into two alternatives, same fix as parse-listing.js: a
+    // suffixed ordinal (er/ème/th) is already complete, no guard needed;
+    // a bare number (Eiffel Housing's "Paris 16") needs the digit-guard
+    // to avoid misreading "Paris 2 200 €" as arrondissement 2.
+    /paris\s*(\d{1,2})\s*(?:er|ème|eme|e|th|st|nd|rd)\b|paris\s*(\d{1,2})(?!\s*\d)\b/i,
     /(\d{1,2})\s*(?:ème|eme|th|st|nd|rd)\s*(?:arrondissement|district)/i,
     /\(?\b750(\d{2})\b\)?/, // postal code fallback, e.g. "(75016)" or "75012" -> arrondissement number; 750XX is unambiguously Paris, no "Paris" word required nearby
   ];
@@ -67,7 +76,7 @@ function normalizeArea(rawAddress) {
   for (const pattern of arrPatterns) {
     const m = text.match(pattern);
     if (m) {
-      let n = parseInt(m[1], 10);
+      let n = parseInt(m[1] || m[2], 10);
       if (n >= 1 && n <= 20) {
         const label = n === 1 ? 'Paris 1er' : `Paris ${n}e`;
         return { area: label, kind: 'paris', arrondissement: n };
