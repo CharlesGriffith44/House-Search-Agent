@@ -8,15 +8,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --stone: #EDE8DE;
-    --stone-deep: #DFD8C8;
-    --ink: #2A2622;
-    --green: #1F3A30;
-    --green-deep: #16281F;
-    --brass: #B8935A;
-    --brass-light: #D9BC8C;
-    --rust: #A8503A;
-    --white: #FAF8F3;
+    /* Real brand palette (YFP Brand Guide v1) */
+    --stone: #FFF8F0;        /* Cream — dominant background, per brand guide's "preference to white/cream" */
+    --stone-deep: #D8D6D4;   /* Concrete — borders, dividers */
+    --ink: #262A30;          /* dark neutral for body/table text — legibility over strict brand-color literalism here */
+    --green: #345083;        /* Royal Blue — header background. (French Blue fails WCAG contrast with white text at 2.42:1 — checked before shipping, not guessed) */
+    --green-deep: #22344F;   /* darker Royal Blue tint — header hover/active */
+    --brass: #4FADF9;        /* French Blue — MAIN COLOR, used for secondary accents (chip borders, eyebrow text) rather than the header, where its contrast with white text would fail */
+    --brass-light: #DBECF7;  /* Alice Blue — light secondary surface (chip hover, stripes) */
+    --rust: #FF4769;         /* Flat Red / Lipstick — used ONLY for the active/selected chip, per brand guide: "sparingly... to draw attention" */
+    --white: #FFFFFF;
   }
 
   * { box-sizing: border-box; }
@@ -153,7 +154,7 @@
   .suburb-chip {
     border: 1.5px solid var(--brass);
     background: var(--white);
-    color: var(--brass);
+    color: var(--green-deep);
     font-family: 'Inter', sans-serif;
     font-size: 0.78rem;
     font-weight: 600;
@@ -166,7 +167,8 @@
   .suburb-chip:hover { background: var(--brass-light); }
 
   .suburb-chip.active {
-    background: var(--brass);
+    background: var(--rust);
+    border-color: var(--rust);
     color: var(--white);
   }
 
