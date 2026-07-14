@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Friend in Paris — Listings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --stone: #EDE8DE;
+    --stone-deep: #DFD8C8;
+    --ink: #2A2622;
+    --green: #1F3A30;
+    --green-deep: #16281F;
+    --brass: #B8935A;
+    --brass-light: #D9BC8C;
+    --rust: #A8503A;
+    --white: #FAF8F3;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--stone);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--green);
+    color: var(--white);
+    padding: 2.25rem 2rem 2rem;
+    border-bottom: 4px solid var(--brass);
+  }
+
+  header .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass-light);
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+  }
+
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+    margin: 0 0 0.3rem;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 0;
+    color: #C9D6CC;
+    max-width: 60ch;
+    font-size: 0.95rem;
+  }
+
+  #meta-line {
+    margin-top: 0.9rem;
+    font-size: 0.8rem;
+    color: var(--brass-light);
+  }
+
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.75rem 2rem 4rem;
+  }
+
+  /* ---- Area selector: the escargot spiral ------------------------- */
+  .area-panel {
+    background: var(--white);
+    border: 1px solid var(--stone-deep);
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .area-panel h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.05rem;
+    margin: 0 0 0.2rem;
+  }
+
+  .area-panel .sub {
+    font-size: 0.82rem;
+    color: #6B6459;
+    margin: 0 0 1.1rem;
+  }
+
+  .spiral-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 1;
+    margin: 0 auto 1rem;
+  }
+
+  .arr-chip {
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid var(--green);
+    background: var(--white);
+    color: var(--green);
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .arr-chip:hover { transform: translate(-50%, -50%) scale(1.12); }
+
+  .arr-chip.active {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--white);
+  }
+
+  .spiral-wrap::before {
+    content: 'ARR.';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: #B7AE9C;
+    font-weight: 600;
+  }
+
+  .suburb-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .suburb-chip {
+    border: 1.5px solid var(--brass);
+    background: var(--white);
+    color: var(--brass);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .suburb-chip:hover { background: var(--brass-light); }
+
+  .suburb-chip.active {
+    background: var(--brass);
+    color: var(--white);
+  }
+
+  .clear-area {
+    display: block;
+    margin: 0.9rem auto 0;
+    font-size: 0.78rem;
+    color: #6B6459;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  /* ---- Filter bar --------------------------------------------------- */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    align-items: flex-end;
+    background: var(--white);
+    border: 1px solid var(--stone-deep);
+    border-radius: 4px;
+    padding: 1.1rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .filter-field label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6B6459;
+    font-weight: 600;
+  }
+  .filter-field input, .filter-field select {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--stone-deep);
+    border-radius: 3px;
+    background: var(--stone);
+    color: var(--ink);
+  }
+  .filter-field input:focus, .filter-field select:focus {
+    outline: 2px solid var(--brass);
+    outline-offset: 1px;
+  }
+  .filter-field.search { flex: 1; min-width: 200px; }
+
+  .toggle-group { display: flex; gap: 0.4rem; }
+  .toggle-btn {
+    font-size: 0.78rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--stone-deep);
+    background: var(--stone);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .toggle-btn.active { background: var(--green); color: var(--white); border-color: var(--green); }
+
+  /* ---- Results ------------------------------------------------------ */
+  #result-count {
+    font-size: 0.85rem;
+    color: #6B6459;
+    margin-bottom: 0.75rem;
+  }
+
+  table { width: 100%; border-collapse: collapse; background: var(--white); }
+  thead th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--white);
+    background: var(--green);
+    padding: 0.65rem 0.8rem;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  thead th:hover { background: var(--green-deep); }
+  thead th.sorted::after { content: ' ▾'; color: var(--brass-light); }
+
+  tbody td {
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--stone-deep);
+    font-size: 0.86rem;
+    white-space: nowrap;
+  }
+  tbody tr:hover { background: var(--stone); }
+  tbody tr:nth-child(even) { background: #F6F3EC; }
+  tbody tr:nth-child(even):hover { background: var(--stone); }
+
+  .price-cell { font-weight: 600; }
+  .source-tag {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: var(--stone-deep);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  a.listing-link { color: var(--green); font-weight: 600; text-decoration: none; }
+  a.listing-link:hover { text-decoration: underline; }
+
+  .yes { color: var(--green); font-weight: 600; }
+  .no { color: #B7AE9C; }
+
+  #empty-state {
+    display: none;
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6B6459;
+    background: var(--white);
+    border: 1px solid var(--stone-deep);
+  }
+  #empty-state h3 { font-family: 'Fraunces', serif; font-weight: 500; margin-bottom: 0.4rem; color: var(--ink); }
+
+  #loading { text-align: center; padding: 3rem; color: #6B6459; }
+
+  @media (max-width: 640px) {
+    main { padding: 1.25rem 1rem 3rem; }
+    header { padding: 1.75rem 1.25rem 1.5rem; }
+    table { font-size: 0.8rem; }
+    thead th, tbody td { padding: 0.5rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Your Friend in Paris</div>
+  <h1>Paris &amp; Île-de-France Rentals</h1>
+  <p>Every listing pulled together from 9 agencies, refreshed automatically. Filter by arrondissement or suburb below — however each agency wrote the address, it's grouped the same way here.</p>
+  <div id="meta-line">Loading…</div>
+</header>
+
+<main>
+  <div class="area-panel">
+    <h2>Where in Paris?</h2>
+    <p class="sub">Click an arrondissement below — they're arranged the way Paris itself spirals outward from the 1st, like a snail shell.</p>
+    <div class="spiral-wrap" id="spiral"></div>
+    <div class="suburb-chips" id="suburb-chips"></div>
+    <button class="clear-area" id="clear-area">Clear area filter</button>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-field search">
+      <label for="search-input">Search</label>
+      <input type="text" id="search-input" placeholder="Street, neighborhood, reference…">
+    </div>
+    <div class="filter-field">
+      <label for="source-select">Agency</label>
+      <select id="source-select"><option value="">All</option></select>
+    </div>
+    <div class="filter-field">
+      <label for="min-price">Min price (€)</label>
+      <input type="number" id="min-price" placeholder="0">
+    </div>
+    <div class="filter-field">
+      <label for="max-price">Max price (€)</label>
+      <input type="number" id="max-price" placeholder="No limit">
+    </div>
+    <div class="filter-field">
+      <label for="rooms-select">Rooms</label>
+      <select id="rooms-select">
+        <option value="">Any</option>
+        <option value="1">1+</option>
+        <option value="2">2+</option>
+        <option value="3">3+</option>
+        <option value="4">4+</option>
+        <option value="5">5+</option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <label>Amenities</label>
+      <div class="toggle-group">
+        <button class="toggle-btn" data-filter="elevator">Elevator</button>
+        <button class="toggle-btn" data-filter="furnished">Furnished</button>
+        <button class="toggle-btn" data-filter="balcony">Balcony</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="result-count"></div>
+  <div id="loading">Loading listings…</div>
+  <table id="results-table" style="display:none">
+    <thead>
+      <tr>
+        <th data-key="source">Agency</th>
+        <th data-key="price">Price (€)</th>
+        <th data-key="rooms">Rooms</th>
+        <th data-key="sqm">m²</th>
+        <th data-key="area">Area</th>
+        <th data-key="address">Address (raw)</th>
+        <th data-key="elevator">Elevator</th>
+        <th data-key="furnished">Furnished</th>
+        <th data-key="balcony">Balcony</th>
+        <th>Link</th>
+      </tr>
+    </thead>
+    <tbody id="results-body"></tbody>
+  </table>
+  <div id="empty-state">
+    <h3>No listings match these filters</h3>
+    <p>Try clearing the area or amenity filters.</p>
+  </div>
+</main>
+
+<script>
+// ---- Normalization logic (inlined from normalize-area.js) ------------
+// Kept in sync with the server-side version used when generating
+// listings.json. Data already arrives pre-normalized, but this stays
+// here as a fallback in case a listing somehow lacks the field.
+</script>
+<script src="normalize-area.js"></script>
+<script>
+(function () {
+  const ARR_COUNT = 20;
+  const state = {
+    listings: [],
+    filters: { area: null, source: '', minPrice: null, maxPrice: null, rooms: null, elevator: false, furnished: false, balcony: false, search: '' },
+    sort: { key: 'price', dir: 'asc' }
+  };
+
+  // Rough escargot-spiral coordinates (percent of container), evoking
+  // the real shape Paris arrondissements form spiraling out from the 1st
+  // — not geographically precise, but recognizably the same silhouette.
+  const SPIRAL_POSITIONS = [
+    [50, 50], [58, 44], [58, 56], [50, 62], [42, 58], [38, 50], [42, 42],
+    [50, 34], [60, 32], [68, 38], [72, 48], [70, 60], [62, 68], [50, 72],
+    [38, 68], [28, 60], [26, 48], [30, 36], [40, 26], [54, 22]
+  ];
+
+  function buildSpiral() {
+    const wrap = document.getElementById('spiral');
+    for (let i = 1; i <= ARR_COUNT; i++) {
+      const [x, y] = SPIRAL_POSITIONS[i - 1];
+      const chip = document.createElement('div');
+      chip.className = 'arr-chip';
+      chip.style.left = x + '%';
+      chip.style.top = y + '%';
+      chip.textContent = i === 1 ? '1er' : i;
+      chip.dataset.arr = i;
+      chip.addEventListener('click', () => {
+        const label = i === 1 ? 'Paris 1er' : `Paris ${i}e`;
+        toggleAreaFilter(label, chip);
+      });
+      wrap.appendChild(chip);
+    }
+  }
+
+  function buildSuburbChips() {
+    const wrap = document.getElementById('suburb-chips');
+    const towns = (window.SUBURB_ALIASES || []).map(s => s.canonical);
+    towns.forEach(name => {
+      const chip = document.createElement('button');
+      chip.className = 'suburb-chip';
+      chip.textContent = name;
+      chip.addEventListener('click', () => toggleAreaFilter(name, chip));
+      wrap.appendChild(chip);
+    });
+  }
+
+  function toggleAreaFilter(area, el) {
+    const already = state.filters.area === area;
+    document.querySelectorAll('.arr-chip.active, .suburb-chip.active').forEach(c => c.classList.remove('active'));
+    if (already) {
+      state.filters.area = null;
+    } else {
+      state.filters.area = area;
+      el.classList.add('active');
+    }
+    render();
+  }
+
+  document.getElementById('clear-area').addEventListener('click', () => {
+    state.filters.area = null;
+    document.querySelectorAll('.arr-chip.active, .suburb-chip.active').forEach(c => c.classList.remove('active'));
+    render();
+  });
+
+  function populateSourceOptions() {
+    const sources = [...new Set(state.listings.map(l => l.source))].sort();
+    const select = document.getElementById('source-select');
+    sources.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      select.appendChild(opt);
+    });
+  }
+
+  function matchesFilters(listing) {
+    const f = state.filters;
+    if (f.area) {
+      const listingArea = (listing.normalizedArea && listing.normalizedArea.area) || '';
+      if (listingArea !== f.area) return false;
+    }
+    if (f.source && listing.source !== f.source) return false;
+    if (f.minPrice != null && (!listing.price || listing.price < f.minPrice)) return false;
+    if (f.maxPrice != null && listing.price && listing.price > f.maxPrice) return false;
+    if (f.rooms != null && (!listing.rooms || listing.rooms < f.rooms)) return false;
+    if (f.elevator && listing.elevator !== true) return false;
+    if (f.furnished && listing.furnished !== true) return false;
+    if (f.balcony && listing.balcony !== true) return false;
+    if (f.search) {
+      const hay = ((listing.address || '') + ' ' + (listing.url || '')).toLowerCase();
+      if (!hay.includes(f.search.toLowerCase())) return false;
+    }
+    return true;
+  }
+
+  function sortListings(list) {
+    const { key, dir } = state.sort;
+    const mult = dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let av, bv;
+      if (key === 'area') {
+        av = (a.normalizedArea && a.normalizedArea.area) || '';
+        bv = (b.normalizedArea && b.normalizedArea.area) || '';
+      } else {
+        av = a[key]; bv = b[key];
+      }
+      if (av == null) av = dir === 'asc' ? Infinity : -Infinity;
+      if (bv == null) bv = dir === 'asc' ? Infinity : -Infinity;
+      if (typeof av === 'string') return av.localeCompare(bv) * mult;
+      return (av - bv) * mult;
+    });
+  }
+
+  function badgeYesNo(v) {
+    if (v === true) return '<span class="yes">Yes</span>';
+    if (v === false) return '<span class="no">No</span>';
+    return '<span class="no">—</span>';
+  }
+
+  function render() {
+    const filtered = sortListings(state.listings.filter(matchesFilters));
+    document.getElementById('result-count').textContent = `${filtered.length} listing${filtered.length === 1 ? '' : 's'}`;
+
+    const table = document.getElementById('results-table');
+    const empty = document.getElementById('empty-state');
+    const body = document.getElementById('results-body');
+
+    if (filtered.length === 0) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    table.style.display = 'table';
+
+    body.innerHTML = filtered.map(l => `
+      <tr>
+        <td><span class="source-tag">${l.source || ''}</span></td>
+        <td class="price-cell">${l.priceOnRequest ? 'On request' : (l.price ? l.price.toLocaleString() : '—')}</td>
+        <td>${l.rooms ?? '—'}</td>
+        <td>${l.sqm ?? '—'}</td>
+        <td>${(l.normalizedArea && l.normalizedArea.area) || '—'}</td>
+        <td>${l.address || ''}</td>
+        <td>${badgeYesNo(l.elevator)}</td>
+        <td>${badgeYesNo(l.furnished)}</td>
+        <td>${badgeYesNo(l.balcony)}</td>
+        <td>${l.url ? `<a class="listing-link" href="${l.url}" target="_blank" rel="noopener">View →</a>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  function wireControls() {
+    document.getElementById('search-input').addEventListener('input', e => { state.filters.search = e.target.value; render(); });
+    document.getElementById('source-select').addEventListener('change', e => { state.filters.source = e.target.value; render(); });
+    document.getElementById('min-price').addEventListener('input', e => { state.filters.minPrice = e.target.value ? Number(e.target.value) : null; render(); });
+    document.getElementById('max-price').addEventListener('input', e => { state.filters.maxPrice = e.target.value ? Number(e.target.value) : null; render(); });
+    document.getElementById('rooms-select').addEventListener('change', e => { state.filters.rooms = e.target.value ? Number(e.target.value) : null; render(); });
+
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.filter;
+        state.filters[key] = !state.filters[key];
+        btn.classList.toggle('active', state.filters[key]);
+        render();
+      });
+    });
+
+    document.querySelectorAll('thead th[data-key]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (state.sort.key === key) {
+          state.sort.dir = state.sort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.sort.key = key;
+          state.sort.dir = 'asc';
+        }
+        document.querySelectorAll('thead th').forEach(h => h.classList.remove('sorted'));
+        th.classList.add('sorted');
+        render();
+      });
+    });
+  }
+
+  async function init() {
+    buildSpiral();
+    buildSuburbChips();
+    wireControls();
+
+    try {
+      const res = await fetch('listings.json', { cache: 'no-store' });
+      const data = await res.json();
+      state.listings = data.listings || [];
+      document.getElementById('meta-line').textContent =
+        `${data.totalListings} listings · updated ${new Date(data.generatedAt).toLocaleString()}`;
+    } catch (err) {
+      document.getElementById('meta-line').textContent = 'Could not load listings.json — is this page being served alongside it?';
+      console.error(err);
+    }
+
+    document.getElementById('loading').style.display = 'none';
+    populateSourceOptions();
+    render();
+  }
+
+  init();
+})();
+</script>
+
+</body>
+</html>
