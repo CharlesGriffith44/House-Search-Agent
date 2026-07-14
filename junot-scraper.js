@@ -25,6 +25,7 @@
 // source in this project.
 
 const parseListing = require('./parse-listing');
+const { extractDetailFeatures } = require('./parse-listing');
 
 const LISTING_SELECTOR = 'a[href*="/fr/biens/"]';
 const BASE_URL = 'https://www.junot.fr/fr/biens-immobiliers/louer/ile-de-france/';
@@ -201,10 +202,18 @@ async function scrapeJunot(searchType = 'rent') {
       const knownAddress = r.slug === PARIS_SLUG ? null : slugToDisplayName(r.slug);
       for (const item of r.listings) {
         const listing = parseListing(item.rawText);
+        // Junot's summary card already includes "Ascenseur"/"Balcon" as
+        // direct tags — same pattern confirmed working for Eiffel
+        // Housing, no separate detail-page visit needed.
+        const details = extractDetailFeatures(item.rawText);
         listing.url = item.url;
         listing.source = 'Junot';
         listing.searchType = searchType;
         listing.isExactListing = true;
+        listing.elevator = details.elevator;
+        listing.balcony = details.balcony;
+        listing.furnished = details.furnished;
+        if (listing.bathrooms == null) listing.bathrooms = details.bathroomsFromDetail;
         if (knownAddress) listing.address = knownAddress;
         allListings.push(listing);
       }
