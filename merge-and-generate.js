@@ -198,6 +198,24 @@ async function main() {
 
   const filename = await buildExcel(searchType, allListings, allSourceStatus, new Date().toISOString());
   console.log(`\n✅ Wrote ${allListings.length} combined listings to ${filename}`);
+
+  // Also write listings.json for the frontend — same data, plus a
+  // pre-computed normalized "area" field per listing (via
+  // normalize-area.js) so the frontend doesn't need to run that logic on
+  // every page load. Raw address is kept too, unmodified, for
+  // transparency — the normalized area is an added filter aid, not a
+  // replacement for the original text.
+  const { normalizeArea } = require('./normalize-area');
+  const listingsWithArea = allListings.map(l => ({ ...l, normalizedArea: normalizeArea(l.address) }));
+  const jsonFilename = searchType === 'purchase' ? 'listings-purchase.json' : 'listings.json';
+  fs.writeFileSync(jsonFilename, JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    searchType,
+    totalListings: listingsWithArea.length,
+    sourceStatus: allSourceStatus,
+    listings: listingsWithArea
+  }, null, 2));
+  console.log(`✅ Wrote ${listingsWithArea.length} listings to ${jsonFilename} (for the frontend)`);
 }
 
 main().then(() => process.exit(0)).catch(err => {
