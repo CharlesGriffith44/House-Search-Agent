@@ -19,6 +19,7 @@ const { scrapeBookAFlat } = require('./bookaflat-scraper');
 const { scrapePerenium } = require('./perenium-scraper');
 const { scrapeParisRental } = require('./parisrental-scraper');
 const { scrapeDanielFeau } = require('./danielfeau-scraper');
+const { scrapeEiffelHousing } = require('./eiffel-housing-scraper');
 
 // Blanket timeout wrapper — catches a hang ANYWHERE inside a scraper
 // function, not just at browser launch. Real successful runs (both local
@@ -95,10 +96,10 @@ async function combineAllSources(searchType = 'rent', options = {}) {
     }
   }
 
-  // Book-a-Flat, Perenium, ParisRental, DanielFeau: all four sites have
-  // "for sale" sections too, but only the rental search has been verified
-  // live for each — scoped rent-only rather than silently assuming the
-  // purchase side works the same way.
+  // Book-a-Flat, Perenium, ParisRental, DanielFeau, Eiffel Housing: all
+  // five sites have "for sale" sections too, but only the rental search
+  // has been verified live for each — scoped rent-only rather than
+  // silently assuming the purchase side works the same way.
   if (searchType === 'rent') {
     await runSource('Book-a-Flat', () => scrapeBookAFlat(searchType), results, sourceStatus);
     await runSource('Perenium', () => scrapePerenium(searchType), results, sourceStatus);
@@ -106,6 +107,7 @@ async function combineAllSources(searchType = 'rent', options = {}) {
       await runSource('ParisRental', () => scrapeParisRental(searchType), results, sourceStatus);
     }
     await runSource('DanielFeau', () => scrapeDanielFeau(searchType), results, sourceStatus);
+    await runSource('Eiffel Housing', () => scrapeEiffelHousing(searchType), results, sourceStatus);
   } else {
     sourceStatus.push({ source: 'Book-a-Flat', found: 0, error: 'Purchase not yet verified for Book-a-Flat' });
     sourceStatus.push({ source: 'Perenium', found: 0, error: 'Purchase not yet verified for Perenium' });
@@ -113,6 +115,7 @@ async function combineAllSources(searchType = 'rent', options = {}) {
       sourceStatus.push({ source: 'ParisRental', found: 0, error: 'Purchase not yet verified for ParisRental' });
     }
     sourceStatus.push({ source: 'DanielFeau', found: 0, error: 'Purchase not yet verified for DanielFeau' });
+    sourceStatus.push({ source: 'Eiffel Housing', found: 0, error: 'Purchase not yet verified for Eiffel Housing' });
   }
 
   return {
