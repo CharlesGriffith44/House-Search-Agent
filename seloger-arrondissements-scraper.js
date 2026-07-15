@@ -150,7 +150,20 @@ async function enrichWithDetails(browser, listings) {
     // Real evidence: SeLoger detail pages commonly state chambres
     // explicitly even when the summary card only shows pièces count —
     // fills in a real bedroom count instead of leaving it null.
-    const bedrooms = listing.bedrooms != null ? listing.bedrooms : d.bedroomsFromDetail;
+    // Sanity check added after a real contamination bug found live:
+    // bedroomsFromDetail sometimes picks up an UNRELATED property's room
+    // count from a detail page's own 'similar listings' sidebar (a studio
+    // showed rooms:1 but bedroomsFromDetail:5 — logically impossible,
+    // since bedrooms can never exceed the listing's own total room
+    // count). Rejecting values that fail this basic consistency check is
+    // safer than trying to guess exactly where on the page to stop
+    // reading, which risks cutting off the real Caractéristiques
+    // checklist if it happens to appear later on the page.
+    let bedroomsFromDetail = d.bedroomsFromDetail;
+    if (bedroomsFromDetail != null && listing.rooms != null && bedroomsFromDetail > listing.rooms) {
+      bedroomsFromDetail = null;
+    }
+    const bedrooms = listing.bedrooms != null ? listing.bedrooms : bedroomsFromDetail;
     return { ...listing, elevator: d.elevator, balcony: d.balcony, furnished: d.furnished, bathrooms, bedrooms };
   });
 }
@@ -185,6 +198,17 @@ async function scrapeArrondissement(arr, searchType) {
       listing.source = 'SeLoger';
       listing.searchType = searchType;
       listing.isExactListing = true;
+      // TEMPORARY DEBUG: log the exact raw text whenever price parses to
+      // 0, so we can see what GitHub Actions' own environment actually
+      // extracted — local reproduction of the same listings has
+      // consistently parsed correctly, suggesting the live CI environment
+      // may be receiving genuinely different content (possibly SeLoger's
+      // anti-bot system serving degraded content specifically to
+      // recognized datacenter IPs). Remove once diagnosed.
+      if (listing.price === 0 && !listing.priceOnRequest) {
+        console.log(`[SeLoger-DEBUG] price=0 for ${item.url}`);
+        console.log(`[SeLoger-DEBUG] RAW TEXT: ${JSON.stringify(item.rawText)}`);
+      }
       // Override with the known arrondissement — we already know exactly
       // which one this is, more reliable than re-deriving from noisy text.
       listing.address = arr.displayName;
