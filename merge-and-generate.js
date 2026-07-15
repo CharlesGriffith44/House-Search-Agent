@@ -193,11 +193,15 @@ async function main() {
     }
   }
 
-  console.log(`\nCombined total: ${allListings.length} listings`);
+  const beforeRoomShareFilter = allListings.length;
+  const filteredListings = allListings.filter(l => !l.isRoomShare);
+  const roomShareCount = beforeRoomShareFilter - filteredListings.length;
+
+  console.log(`\nCombined total: ${beforeRoomShareFilter} listings (${roomShareCount} room-share/colocation listings excluded, ${filteredListings.length} remaining)`);
   allSourceStatus.forEach(s => console.log(`  ${s.source}: ${s.error ? 'FAILED - ' + s.error : s.found + ' listings'}`));
 
-  const filename = await buildExcel(searchType, allListings, allSourceStatus, new Date().toISOString());
-  console.log(`\n✅ Wrote ${allListings.length} combined listings to ${filename}`);
+  const filename = await buildExcel(searchType, filteredListings, allSourceStatus, new Date().toISOString());
+  console.log(`\n✅ Wrote ${filteredListings.length} combined listings to ${filename}`);
 
   // Also write listings.json for the frontend — same data, plus a
   // pre-computed normalized "area" field per listing (via
@@ -206,7 +210,7 @@ async function main() {
   // transparency — the normalized area is an added filter aid, not a
   // replacement for the original text.
   const { normalizeArea } = require('./normalize-area');
-  const listingsWithArea = allListings.map(l => ({ ...l, normalizedArea: normalizeArea(l.address) }));
+  const listingsWithArea = filteredListings.map(l => ({ ...l, normalizedArea: normalizeArea(l.address) }));
   const jsonFilename = searchType === 'purchase' ? 'listings-purchase.json' : 'listings.json';
   fs.writeFileSync(jsonFilename, JSON.stringify({
     generatedAt: new Date().toISOString(),
