@@ -25,6 +25,13 @@ function parseListing(rawText) {
 
   const isPriceOnRequest = PRICE_ON_REQUEST_PATTERNS.some(p => p.test(text));
 
+  // Room-share listings ("Colocation à louer" — real confirmed SeLoger
+  // phrasing, seen live) are a single room within a shared apartment, not
+  // a full unit — a different category than what this tool is meant to
+  // find. Detected here in the shared parser so it applies uniformly
+  // across every source, not just SeLoger.
+  const isRoomShare = /\bcolocation\b|\bcoloc\b|\bcolocataires?\b|\broommate\b|\bshared\s+room\b|\bcoliving\b/i.test(text);
+
   // ---- PRICE -----------------------------------------------------------
   let price = 0;
 
@@ -237,7 +244,8 @@ function parseListing(rawText) {
     sqft,
     address: address.substring(0, 200),
     matchScore,
-    isExactListing: matchScore >= 75
+    isExactListing: matchScore >= 75,
+    isRoomShare
   };
 }
 
@@ -253,7 +261,8 @@ function emptyListing() {
     sqft: null,
     address: '',
     matchScore: 0,
-    isExactListing: false
+    isExactListing: false,
+    isRoomShare: false
   };
 }
 
