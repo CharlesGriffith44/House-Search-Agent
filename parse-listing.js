@@ -66,7 +66,20 @@ function parseListing(rawText) {
   // break between two completely unrelated numbers as a thousands
   // separator. Real separators are always same-line, hence the specific
   // character list here rather than \s.
-  const SEP = ' \u00A0\u202F.,';
+  // Broadened after a genuinely subtle bug found via extensive live
+  // debugging: a hardcoded test string with a REGULAR space parsed
+  // correctly in the exact same CI environment, but the ACTUAL scraped
+  // text for the same-looking listings still failed. The only remaining
+  // explanation: the real Puppeteer-extracted text contains a Unicode
+  // space variant that's visually indistinguishable from a regular space
+  // (and isn't escaped by JSON.stringify, so it looked identical in
+  // every debug log) but isn't a byte this regex recognized. Now
+  // includes the full common range of Unicode space characters —
+  // en/em space, thin space, hair space, figure space, zero-width space,
+  // zero-width no-break space/BOM — while still deliberately excluding
+  // actual line-breaking characters (\n, \r, U+2028, U+2029), since
+  // crossing those was the ORIGINAL bug this file already fixed once.
+  const SEP = ' \u00A0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u200B\uFEFF.,';
   const PRICE_NUMBER = `(?:\\d{1,3}(?:[${SEP}]\\d{3})+|\\d+)`;
   const NO_DIGIT_BEFORE = '(?<!\\d)';
   // Same-line-only whitespace for the connective tissue immediately
@@ -78,7 +91,7 @@ function parseListing(rawText) {
   // were "the price following this €". A genuine price and its currency
   // symbol are always on the same visual line — restricting to
   // space/tab only prevents reaching into a completely different field.
-  const SL = '[ \\t]*';
+  const SL = '[ \\t\\u00A0\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u202F\\u205F\\u3000\\u200B\\uFEFF]*';
 
   if (!isPriceOnRequest) {
     const rentAfter = text.match(new RegExp(`${NO_DIGIT_BEFORE}(${PRICE_NUMBER})${SL}€${SL}\\/${SL}(mois|month)`, 'i'));
@@ -135,9 +148,19 @@ function parseListing(rawText) {
   // on one line, the real sqm "42.59" on the next) was matching as
   // "5\n42" via the old [\d\s]* group, since \s matches newlines. Real
   // evidence from Perenium live testing.
-  const sqmMatch = text.match(/(?<!\d)(\d[\d \t]*(?:[.,]\d+)?)[ \t]*(?:m²|m2|sqm)\b(?!\w)/i) ||
-                    text.match(/(?<!\d)(\d[\d \t]*(?:[.,]\d+)?)[ \t]*(?:m²|m2|sqm)/i);
-  const sqm = sqmMatch ? parseFloat(sqmMatch[1].replace(/[\s\t]/g, '').replace(',', '.')) : null;
+  // Broadened after the same invisible-Unicode-space bug found live in
+  // SeLoger price parsing (see SEP/SL comments above) — applies here too
+  // since sqm values commonly appear right next to the same kind of
+  // rendered space. SQ_SPACES holds just the space-like characters;
+  // the actual character class used below combines \d WITH these
+  // (matching the original [\d \t] design, which allowed a run of
+  // digits-or-spaces together) — an earlier version of this fix
+  // mistakenly used the space-only class alone, which silently stopped
+  // matching after the first digit.
+  const SQ_SPACES = ' \\t\\u00A0\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u202F\\u205F\\u3000\\u200B\\uFEFF';
+  const sqmMatch = text.match(new RegExp(`(?<!\\d)(\\d[\\d${SQ_SPACES}]*(?:[.,]\\d+)?)[${SQ_SPACES}]*(?:m²|m2|sqm)\\b(?!\\w)`, 'i')) ||
+                    text.match(new RegExp(`(?<!\\d)(\\d[\\d${SQ_SPACES}]*(?:[.,]\\d+)?)[${SQ_SPACES}]*(?:m²|m2|sqm)`, 'i'));
+  const sqm = sqmMatch ? parseFloat(sqmMatch[1].replace(new RegExp(`[${SQ_SPACES}]`, 'g'), '').replace(',', '.')) : null;
 
   // ---- ADDRESS / ARRONDISSEMENT --------------------------------------------
   // Added bare "e" (e.g. "Paris 6e") after real evidence: Junot writes
