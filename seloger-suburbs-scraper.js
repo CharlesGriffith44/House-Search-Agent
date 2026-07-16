@@ -231,9 +231,7 @@ async function scrapeTown(town, searchType) {
     const seenUrls = new Set();
 
     for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
-      const url = pageNum === 1
-        ? `https://www.seloger.com/recherche/location/appartement/ile-de-france/${town.slug}-${town.postal}/${town.geoCode}`
-        : `https://www.seloger.com/recherche/location/appartement/ile-de-france/${town.slug}-${town.postal}/${town.geoCode}?LISTING-LISTpg=${pageNum}`;
+      const url = `https://www.seloger.com/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=${town.geoCode.toUpperCase()}&page=${pageNum}`;
 
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
       await new Promise(r => setTimeout(r, 2000));
