@@ -179,21 +179,19 @@ async function scrapeArrondissement(arr, searchType) {
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
 
-    // Real pagination confirmed live: SeLoger supports ?LISTING-LISTpg=N
-    // (found via direct research — a popular arrondissement can have up
-    // to ~15 pages / 400+ listings, versus the ~25-30 we were capturing
-    // from page 1 alone). Capped at 100 total listings and MAX_PAGES
-    // pages — matching the same cap used elsewhere in this project — to
-    // stay within the 5-minute job timeout once detail-page enrichment
-    // (which runs per listing) is added on top.
+    // Real pagination confirmed via live testing (found by clicking the
+    // actual page-2 button in the UI and observing the URL it produces —
+    // every URL-parameter-guessing attempt before this failed silently).
+    // The real endpoint is /classified-search with a 'page' parameter
+    // and the geoCode UPPERCASED — verified across 5 pages returning 144
+    // genuinely unique listings (28-30 new per page), not the same
+    // content repeated.
     const MAX_PAGES = 15;
     const allParsed = [];
     const seenUrls = new Set();
 
     for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
-      const url = pageNum === 1
-        ? `https://www.seloger.com/recherche/location/appartement/paris-75000/${arr.slug}/${arr.geoCode}`
-        : `https://www.seloger.com/recherche/location/appartement/paris-75000/${arr.slug}/${arr.geoCode}?LISTING-LISTpg=${pageNum}`;
+      const url = `https://www.seloger.com/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=${arr.geoCode.toUpperCase()}&page=${pageNum}`;
 
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
       await new Promise(r => setTimeout(r, 2000));
