@@ -49,7 +49,20 @@ const SUBURB_TOWNS = [
   { slug: 'vaucresson', postal: '92420', geoCode: 'ad08fr36632', displayName: 'Vaucresson' },
   { slug: 'garches', postal: '92380', geoCode: 'ad08fr36613', displayName: 'Garches' },
   { slug: 'marnes-la-coquette', postal: '92430', geoCode: 'ad08fr36619', displayName: 'Marnes-la-Coquette' },
-  { slug: 'ville-d-avray', postal: '92410', geoCode: 'ad08fr36633', displayName: "Ville-d'Avray" }
+  { slug: 'ville-d-avray', postal: '92410', geoCode: 'ad08fr36633', displayName: "Ville-d'Avray" },
+  // 8 towns added later — these show up as clickable chips on the
+  // frontend (via other sources' broader suburb coverage, like Junot's
+  // 51 towns) but were never actually included in SeLoger's own suburb
+  // list until now. Each geoCode individually verified live, same as
+  // the original 13 above.
+  { slug: 'courbevoie', postal: '92400', geoCode: 'ad08fr36611', displayName: 'Courbevoie' },
+  { slug: 'versailles', postal: '78000', geoCode: 'ad08fr32611', displayName: 'Versailles' },
+  { slug: 'issy-les-moulineaux', postal: '92130', geoCode: 'ad08fr36616', displayName: 'Issy-les-Moulineaux' },
+  { slug: 'colombes', postal: '92700', geoCode: 'ad08fr36610', displayName: 'Colombes' },
+  { slug: 'nanterre', postal: '92000', geoCode: 'ad08fr36622', displayName: 'Nanterre' },
+  { slug: 'chatou', postal: '78400', geoCode: 'ad08fr32414', displayName: 'Chatou' },
+  { slug: 'croissy-sur-seine', postal: '78290', geoCode: 'ad08fr32429', displayName: 'Croissy-sur-Seine' },
+  { slug: 'la-celle-saint-cloud', postal: '78170', geoCode: 'ad08fr32408', displayName: 'La Celle-Saint-Cloud' }
 ];
 
 async function getBrowser() {
@@ -226,7 +239,7 @@ async function scrapeTown(town, searchType) {
     // seloger-arrondissements-scraper.js for the full research note).
     // Capped at 100 listings / MAX_PAGES pages to stay within the
     // 5-minute job timeout once detail-page enrichment runs on top.
-    const MAX_PAGES = 15;
+    const MAX_PAGES = 18;
     const allParsed = [];
     const seenUrls = new Set();
 
@@ -268,7 +281,7 @@ async function scrapeTown(town, searchType) {
       console.log(`[SeLoger-${town.slug}] Page ${pageNum}: ${newCount} new listing(s), ${allParsed.length} total so far`);
 
       if (newCount === 0) break;
-      if (allParsed.length >= 300) break;
+      if (allParsed.length >= 450) break;
     }
 
     const valid = allParsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
