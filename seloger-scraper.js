@@ -32,7 +32,7 @@
 const parseListing = require('./parse-listing');
 const { extractDetailFeatures } = require('./parse-listing');
 
-const URL_RENT = 'https://www.seloger.com/recherche/location/appartement/ile-de-france/paris-75000/ad08fr31096';
+const PARIS_GEOCODE = 'ad08fr31096';
 const LISTING_SELECTOR = 'a[href*="/annonces/locations/"]';
 const DETAIL_FETCH_CONCURRENCY = 3;
 
@@ -221,39 +221,52 @@ async function scrapeSeLoger(searchType = 'rent') {
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(30000);
 
-    const url = URL_RENT; // only rent URL confirmed working so far
-    console.log(`[SeLoger] Navigating to ${url}`);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(err => {
-      console.warn(`[SeLoger] Navigation warning: ${err.message}`);
-    });
+    // Real pagination confirmed live via ?LISTING-LISTpg=N (see
+    // seloger-arrondissements-scraper.js for the full research note).
+    // MAX_PAGES kept smaller here (8, vs 15 for the isolated
+    // per-arrondissement/suburb jobs) since this runs inside scrape-main,
+    // sharing its 15-minute budget with Barnes and Junot rather than
+    // having its own dedicated 5-minute window.
+    const MAX_PAGES = 8;
+    const allParsed = [];
+    const seenUrls = new Set();
 
-    await new Promise(r => setTimeout(r, 3000)); // let consent banner / JS challenge settle
+    for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+      const url = `https://www.seloger.com/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=${PARIS_GEOCODE.toUpperCase()}&page=${pageNum}`;
+      console.log(`[SeLoger] Navigating to ${url}`);
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(err => {
+        console.warn(`[SeLoger] Navigation warning: ${err.message}`);
+      });
 
-    try {
-      await page.waitForSelector(LISTING_SELECTOR, { timeout: 15000 });
-    } catch (e) {
-      console.warn(`[SeLoger] Selector timeout — page may not have loaded listings.`);
+      await new Promise(r => setTimeout(r, 3000)); // let consent banner / JS challenge settle
+
+      try {
+        await page.waitForSelector(LISTING_SELECTOR, { timeout: 15000 });
+      } catch (e) {
+        console.warn(`[SeLoger] Page ${pageNum}: selector timeout — stopping pagination here.`);
+        break;
+      }
+
+      const rawListings = await page.evaluate(extractListings);
+      let newCount = 0;
+      for (const item of rawListings) {
+        if (seenUrls.has(item.url)) continue;
+        seenUrls.add(item.url);
+        const listing = parseListing(item.rawText);
+        listing.url = item.url;
+        listing.source = 'SeLoger';
+        listing.searchType = searchType;
+        listing.isExactListing = true;
+        allParsed.push(listing);
+        newCount++;
+      }
+      console.log(`[SeLoger] Page ${pageNum}: ${newCount} new listing(s), ${allParsed.length} total so far`);
+
+      if (newCount === 0) break;
+      if (allParsed.length >= 100) break;
     }
 
-    const rawListings = await page.evaluate(extractListings);
-    console.log(`[SeLoger] Raw extracted: ${rawListings.length}`);
-
-    const parsed = rawListings.map(item => {
-      const listing = parseListing(item.rawText);
-      listing.url = item.url;
-      listing.source = 'SeLoger';
-      listing.searchType = searchType;
-      listing.isExactListing = true;
-      // TEMPORARY DEBUG: see debug-logging note in
-      // seloger-arrondissements-scraper.js for why this exists.
-      if (listing.price === 0 && !listing.priceOnRequest) {
-        console.log(`[SeLoger-DEBUG] price=0 for ${item.url}`);
-        console.log(`[SeLoger-DEBUG] RAW TEXT: ${JSON.stringify(item.rawText)}`);
-      }
-      return listing;
-    });
-
-    const valid = parsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
+    const valid = allParsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
     console.log(`[SeLoger] Valid listings: ${valid.length}`);
 
     const enriched = await enrichWithDetails(browser, valid);
