@@ -38,8 +38,14 @@ const SUBURB_TOWNS = [
 
 const LISTING_SELECTOR = 'a[href*="/ref-"]';
 const NEXT_BUTTON_SELECTOR = 'a[href^="javascript:annonces_suivantes"]';
-const MAX_LISTINGS_PER_TOWN = 100;
-const MAX_PAGE_CLICKS = 10;
+// Type-aware caps: real evidence shows Neuilly-sur-Seine alone has 151
+// sale listings (vs only 28 for rent) — the old flat 100 cap, while
+// already generous for rent, would cut off real sale inventory for
+// popular towns. Kept at 100 for rent (comfortably above any real rent
+// count seen) and raised to 250 for purchase (comfortable margin above
+// the confirmed 151 real max).
+const MAX_LISTINGS_PER_TOWN_BY_TYPE = { rent: 100, purchase: 250 };
+const MAX_PAGE_CLICKS_BY_TYPE = { rent: 10, purchase: 20 };
 const TOWN_CONCURRENCY = 2; // kept modest given the earlier nested-concurrency lesson from SeLoger-suburbs
 
 function extractListings(townSlug) {
@@ -84,13 +90,13 @@ async function countUniqueListings(page) {
   }, LISTING_SELECTOR);
 }
 
-async function collectWithPagination(page, townSlug) {
+async function collectWithPagination(page, townSlug, maxListings, maxPageClicks) {
   let previousCount = 0;
   let clicks = 0;
 
-  while (clicks < MAX_PAGE_CLICKS) {
+  while (clicks < maxPageClicks) {
     const currentCount = await countUniqueListings(page);
-    if (currentCount >= MAX_LISTINGS_PER_TOWN) break;
+    if (currentCount >= maxListings) break;
     if (clicks > 0 && currentCount === previousCount) break;
 
     const nextButton = await page.$(NEXT_BUTTON_SELECTOR);
@@ -159,13 +165,16 @@ async function scrapeTown(browser, town, searchType) {
       // Genuinely zero listings for this town today — expected occasionally.
     }
 
-    const raw = await collectWithPagination(page, town.slug);
+    const maxListings = MAX_LISTINGS_PER_TOWN_BY_TYPE[searchType] || 100;
+    const maxPageClicks = MAX_PAGE_CLICKS_BY_TYPE[searchType] || 10;
+
+    const raw = await collectWithPagination(page, town.slug, maxListings, maxPageClicks);
     await page.close();
     // Defensive cap: a live run showed one town (Ville-d'Avray) returning
     // 120 listings — 5-10x every other town in this batch, and unexplained.
     // Capping here bounds the worst case regardless of root cause; the
     // anomaly itself is still worth investigating separately.
-    return { slug: town.slug, listings: raw.slice(0, MAX_LISTINGS_PER_TOWN), error: null };
+    return { slug: town.slug, listings: raw.slice(0, maxListings), error: null };
 
   } catch (error) {
     if (page) { try { await page.close(); } catch (e) {} }
