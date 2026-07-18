@@ -20,7 +20,12 @@
 const parseListing = require('./parse-listing');
 const { extractDetailFeatures } = require('./parse-listing');
 
-const LISTING_SELECTOR = 'a[href*="/annonces/locations/"]';
+// Same real bug fix as seloger-arrondissements-scraper.js: hardcoded
+// rent-only selector caused every sale job to silently return 0
+// listings.
+function getListingSelector(searchType) {
+  return searchType === 'sale' ? 'a[href*="/annonces/achat/"]' : 'a[href*="/annonces/locations/"]';
+}
 const DETAIL_FETCH_CONCURRENCY = 3;
 // FIXED: was 3, causing nested concurrency (3 towns x 3 detail-fetches =
 // up to 9-12 simultaneous pages on ONE browser). Live evidence proved this
@@ -111,10 +116,11 @@ function withTimeout(promise, ms, label) {
 // truth — capping to it (keeping the first N in DOM order, since filler
 // content consistently appears after genuine results in every case
 // checked) removes the contamination without needing per-town DOM work.
-function extractListings() {
+function extractListings(searchType) {
   const results = [];
   const seen = new Set();
-  const links = Array.from(document.querySelectorAll('a[href*="/annonces/locations/"]'));
+  const linkSelector = searchType === 'sale' ? 'a[href*="/annonces/achat/"]' : 'a[href*="/annonces/locations/"]';
+  const links = Array.from(document.querySelectorAll(linkSelector));
 
   for (const link of links) {
     const href = link.href;
@@ -239,7 +245,7 @@ async function scrapeTown(town, searchType) {
     // seloger-arrondissements-scraper.js for the full research note).
     // Capped at 100 listings / MAX_PAGES pages to stay within the
     // 5-minute job timeout once detail-page enrichment runs on top.
-    const MAX_PAGES = 18;
+    const MAX_PAGES = 30;
     const allParsed = [];
     const seenUrls = new Set();
 
@@ -251,13 +257,13 @@ async function scrapeTown(town, searchType) {
       await new Promise(r => setTimeout(r, 2000));
 
       try {
-        await page.waitForSelector(LISTING_SELECTOR, { timeout: 10000 });
+        await page.waitForSelector(getListingSelector(searchType), { timeout: 10000 });
       } catch (e) {
         // Genuinely zero/out-of-pages for this town — expected occasionally.
         break;
       }
 
-      const raw = await page.evaluate(extractListings);
+      const raw = await page.evaluate(extractListings, searchType);
       let newCount = 0;
       for (const item of raw) {
         if (seenUrls.has(item.url)) continue;
