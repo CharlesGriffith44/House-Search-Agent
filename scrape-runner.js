@@ -8,8 +8,13 @@ const { getBarnesConfig } = require('./source-config');
 const parseListing = require('./parse-listing');
 const { extractDetailFeatures } = require('./parse-listing');
 
-const MAX_LISTINGS = 100;
-const MAX_PAGE_CLICKS = 10;
+// Caps made type-aware: rent (146 real listings) and buy (938 real
+// listings) are wildly different scales, but previously shared one
+// MAX_LISTINGS=100 that under-captured BOTH. Each set generously above
+// its own real confirmed total (see source-config.js) to comfortably
+// capture full inventory with margin.
+const MAX_LISTINGS_BY_TYPE = { rent: 200, purchase: 1000 };
+const MAX_PAGE_CLICKS_BY_TYPE = { rent: 15, purchase: 50 };
 const DETAIL_FETCH_CONCURRENCY = 3; // keep modest — 100 detail pages is already a lot more load on Barnes than the fast path
 
 async function getBrowser() {
@@ -85,7 +90,7 @@ async function countUniqueListings(page, selector) {
   }, selector);
 }
 
-async function collectWithPagination(page, config) {
+async function collectWithPagination(page, config, maxListings, maxPageClicks) {
   let previousCount = 0;
   let clicks = 0;
 
@@ -96,12 +101,12 @@ async function collectWithPagination(page, config) {
   page.on('console', msg => console.log(`[Barnes][page console] ${msg.type()}: ${msg.text()}`));
   page.on('pageerror', err => console.log(`[Barnes][page error] ${err.message}`));
 
-  while (clicks < MAX_PAGE_CLICKS) {
+  while (clicks < maxPageClicks) {
     const currentCount = await countUniqueListings(page, config.waitForSelector);
 
     console.log(`[Barnes] Unique listings on page: ${currentCount} (after ${clicks} click(s))`);
 
-    if (currentCount >= MAX_LISTINGS) break;
+    if (currentCount >= maxListings) break;
     if (clicks > 0 && currentCount === previousCount) {
       console.log('[Barnes] No new listings after triggering "Next listings" — reached the end of real results.');
       break;
@@ -298,10 +303,13 @@ async function scrapeBarnes(searchType, options = {}) {
       console.warn('[Barnes] annonces_suivantes never became available on window within 15s — pagination will likely fail or fall back to a click.');
     }
 
-    const rawListings = await collectWithPagination(page, config);
+    const maxListings = MAX_LISTINGS_BY_TYPE[config.searchType] || 200;
+    const maxPageClicks = MAX_PAGE_CLICKS_BY_TYPE[config.searchType] || 15;
+
+    const rawListings = await collectWithPagination(page, config, maxListings, maxPageClicks);
     console.log(`[${key}] Raw extracted (pre-filter): ${rawListings.length}`);
 
-    const parsed = rawListings.slice(0, MAX_LISTINGS).map(item => {
+    const parsed = rawListings.slice(0, maxListings).map(item => {
       const listing = parseListing(item.rawText);
       listing.url = item.url;
       listing.source = 'Barnes';
