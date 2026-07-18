@@ -82,7 +82,11 @@ async function scrapePerenium(searchType = 'rent') {
     for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
       const page = await browser.newPage();
       await page.setDefaultNavigationTimeout(20000);
-      const url = pageNum === 1 ? BASE_URL : `${BASE_URL}?Page=${pageNum}`;
+      // Sale confirmed live at 19 listings across 2 pages, same
+      // ?Page=N mechanism as rent — just a different base path.
+      const saleBaseUrl = 'https://www.perenium.eu/vente.php';
+      const currentBaseUrl = searchType === 'sale' ? saleBaseUrl : BASE_URL;
+      const url = pageNum === 1 ? currentBaseUrl : `${currentBaseUrl}?Page=${pageNum}`;
 
       console.log(`[Perenium] Navigating to ${url}`);
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
@@ -101,6 +105,10 @@ async function scrapePerenium(searchType = 'rent') {
       let newCount = 0;
       for (const item of raw) {
         if (seenUrls.has(item.url)) continue;
+        // Real evidence: a "VENDU" (sold) listing was found mixed into
+        // the sale page's results alongside genuinely available ones -
+        // skip it rather than presenting it as available.
+        if (searchType === 'sale' && /\bvendu\b/i.test(item.rawText)) continue;
         seenUrls.add(item.url);
         const listing = parseListing(item.rawText);
         listing.url = item.url;
