@@ -103,7 +103,17 @@ function parseListing(rawText) {
   if (!isPriceOnRequest) {
     const rentAfter = text.match(new RegExp(`${NO_DIGIT_BEFORE}(${PRICE_NUMBER})${SL}€${SL}\\/${SL}(mois|month)`, 'i'));
     const rentBefore = text.match(new RegExp(`€${SL}${NO_DIGIT_BEFORE}(${PRICE_NUMBER})${SL}\\/${SL}(mois|month)`, 'i'));
-    const saleAfter = text.match(new RegExp(`${NO_DIGIT_BEFORE}(${PRICE_NUMBER})${SL}€(?!${SL}\\d)`));
+    // saleAfter's negative lookahead was removed after a real bug found
+    // via live SeLoger buy-listing testing: sale prices have no "/mois"
+    // suffix to naturally separate them from the next field, so text
+    // like "1 550 000 € 147,14 m²" (price, then sqm, same line) was
+    // rejected by the old (?!${SL}\d) lookahead — which mistook the
+    // nearby sqm number for "more digits continuing this price" — and
+    // fell through to saleBefore, which then wrongly grabbed "147" (the
+    // sqm value) as if it were "the price following this €". Rent
+    // listings never hit this because /mois always consumes that
+    // position immediately after €, but sale listings commonly don't.
+    const saleAfter = text.match(new RegExp(`${NO_DIGIT_BEFORE}(${PRICE_NUMBER})${SL}€`));
     const saleBefore = text.match(new RegExp(`€${SL}${NO_DIGIT_BEFORE}(${PRICE_NUMBER})(?!${SL}(?:AED|\\$|USD|CHF|£|₪|¥))`, 'i'));
 
     const toInt = (s) => parseInt(s.replace(new RegExp(`[${SEP}]`, 'g'), ''), 10);
