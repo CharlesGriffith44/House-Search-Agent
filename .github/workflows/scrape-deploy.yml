@@ -68,6 +68,32 @@ jobs:
           path: output-main.json
           retention-days: 1
 
+  # Sale-listing counterpart to scrape-main above. All 10 sources were
+  # individually verified live to support sale/buy listings this session
+  # — Barnes (938 real), Junot (849 real), SeLoger (~426/arrondissement),
+  # DanielFeau (high volume, up to 18+ pages/arrondissement), and smaller
+  # confirmed volumes for the rest.
+  scrape-main-sale:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth exceljs
+      - name: Scrape main sources - sale (excludes SeLoger-Suburbs)
+        run: node scrape-main-sources.js sale details
+      - name: Upload main sources sale output
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-main-sale
+          path: output-main-sale.json
+          retention-days: 1
+
   # Each SeLoger suburb town gets its OWN isolated job (own runner, own
   # session) — testing whether SeLoger's anti-bot system is flagging the
   # PATTERN of many distinct location searches within one session, not
@@ -120,6 +146,56 @@ jobs:
           path: output-seloger-${{ matrix.town }}.json
           retention-days: 1
 
+  # Sale-listing counterpart to scrape-seloger-suburb above — identical
+  # town list and pagination mechanism, verified live to work for sale
+  # via the same distributionTypes=Buy parameter confirmed for the main
+  # SeLoger scraper.
+  scrape-seloger-suburb-sale:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        town:
+          - neuilly-sur-seine
+          - boulogne-billancourt
+          - suresnes
+          - levallois-perret
+          - rueil-malmaison
+          - puteaux
+          - saint-cloud
+          - saint-germain-en-laye
+          - le-vesinet
+          - vaucresson
+          - garches
+          - marnes-la-coquette
+          - ville-d-avray
+          - courbevoie
+          - versailles
+          - issy-les-moulineaux
+          - colombes
+          - nanterre
+          - chatou
+          - croissy-sur-seine
+          - la-celle-saint-cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+      - name: Scrape ${{ matrix.town }} sale in isolation
+        run: node scrape-single-seloger-suburb.js ${{ matrix.town }} sale
+      - name: Upload ${{ matrix.town }} sale result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-seloger-${{ matrix.town }}-sale
+          path: output-seloger-${{ matrix.town }}-sale.json
+          retention-days: 1
+
   # Each Paris arrondissement gets its OWN isolated job too — same trick
   # that fixed the suburbs, now used to get past Paris' unsolved
   # pagination problem (seloger-scraper.js's own notes: 3 different
@@ -148,6 +224,35 @@ jobs:
         with:
           name: output-seloger-arr-${{ matrix.arr }}
           path: output-seloger-arr-${{ matrix.arr }}.json
+          retention-days: 1
+
+  # Sale-listing counterpart to scrape-seloger-arrondissement above —
+  # same 20 arrondissements, verified live to work for sale via the same
+  # /classified-search?...&page=N mechanism confirmed for rent (336
+  # listings captured across 17 pages during real testing for Paris 7e).
+  scrape-seloger-arrondissement-sale:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        arr: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+      - name: Scrape arrondissement ${{ matrix.arr }} sale in isolation
+        run: node scrape-single-seloger-arrondissement.js ${{ matrix.arr }} sale
+      - name: Upload arrondissement ${{ matrix.arr }} sale result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-seloger-arr-${{ matrix.arr }}-sale
+          path: output-seloger-arr-${{ matrix.arr }}-sale.json
           retention-days: 1
 
   # Each ParisRental page gets its OWN isolated job — tried after the
@@ -191,13 +296,37 @@ jobs:
           path: output-parisrental-${{ matrix.category }}-${{ matrix.page }}.json
           retention-days: 1
 
-  # Downloads every artifact from all four jobs above, merges everything,
-  # and writes/commits the final Excel file.
-  merge-and-commit:
-    needs: [check-schedule, scrape-main, scrape-seloger-suburb, scrape-seloger-arrondissement, scrape-parisrental-page]
+  # Sale-listing counterpart — a single job, not a matrix, since sale
+  # inventory was confirmed live at just 4 listings total (vs the ~93
+  # rent listings across furnished+unfurnished needing 8 paginated jobs).
+  scrape-parisrental-sale:
+    needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer
+      - name: Scrape sale listings in isolation
+        run: node scrape-single-parisrental-page.js sale 1
+      - name: Upload sale result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-parisrental-sale-1
+          path: output-parisrental-sale-1.json
+          retention-days: 1
+
+  # Downloads every artifact from all four jobs above, merges everything,
+  # and writes/commits the final Excel file.
+  merge-and-commit:
+    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale]
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -210,18 +339,20 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-      - name: Merge and generate Excel
+      - name: Merge and generate Excel - rent
         run: node merge-and-generate.js rent artifacts
+      - name: Merge and generate Excel - sale
+        run: node merge-and-generate.js sale artifacts
       - name: Sync to Google Sheets
         env:
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
           GOOGLE_SHEET_ID: '1maB2BiEzEK2XwC-vVHJGJuigdLGSUi9Yyh3psVWHt_I'
-        run: node sync-to-google-sheets.js listings.json
-      - name: Commit updated Excel file to repo
+        run: node sync-to-google-sheets.js listings.json listings-sale.json
+      - name: Commit updated Excel files to repo
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add listings.xlsx
+          git add listings.xlsx listings-sale.xlsx
           git commit -m "Update listings: $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
           git push
       - name: Prepare Pages output
@@ -229,6 +360,8 @@ jobs:
           mkdir -p _site
           cp listings.xlsx _site/listings.xlsx
           cp listings.json _site/listings.json
+          cp listings-sale.xlsx _site/listings-sale.xlsx
+          cp listings-sale.json _site/listings-sale.json
           cp index.html _site/index.html
           cp normalize-area.js _site/normalize-area.js
       - uses: actions/upload-pages-artifact@v3
