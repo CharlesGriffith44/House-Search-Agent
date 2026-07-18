@@ -28,7 +28,19 @@ const parseListing = require('./parse-listing');
 const { extractDetailFeatures } = require('./parse-listing');
 
 const LISTING_SELECTOR = 'a[href*="/fr/biens/"]';
-const BASE_URL = 'https://www.junot.fr/fr/biens-immobiliers/louer/ile-de-france/';
+
+// Same URL structure for both — just "louer" (rent) vs "acheter" (buy),
+// confirmed live: https://www.junot.fr/fr/biens-immobiliers/acheter/
+// ile-de-france/paris-17e etc. Sale prices found in real testing range
+// from ~400,000€ to several million — the existing saleAfter/saleBefore
+// price patterns in parse-listing.js already handle this format
+// correctly (no "/mois" suffix), confirmed by the file's own original
+// design comment mentioning both "12 000 000 €" and "€ 17,000 / month"
+// as formats it was built to handle from the start.
+function getBaseUrl(searchType) {
+  const segment = searchType === 'sale' ? 'acheter' : 'louer';
+  return `https://www.junot.fr/fr/biens-immobiliers/${segment}/ile-de-france/`;
+}
 
 // Paris aggregate covers all 20 arrondissements in one page — no need to
 // list them individually.
@@ -133,12 +145,12 @@ async function mapWithConcurrency(items, limit, fn) {
 
 // Scrapes ONE location's page (Paris aggregate or a single town) — no
 // pagination needed, confirmed across every sample checked.
-async function scrapeLocation(browser, slug) {
+async function scrapeLocation(browser, slug, searchType) {
   let page;
   try {
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(20000);
-    const url = BASE_URL + slug;
+    const url = getBaseUrl(searchType) + slug;
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
@@ -169,7 +181,7 @@ async function scrapeJunot(searchType = 'rent') {
     let completed = 0;
     const start = Date.now();
     const results = await mapWithConcurrency(ALL_SLUGS, MAX_CONCURRENT, async (slug) => {
-      const result = await scrapeLocation(browser, slug);
+      const result = await scrapeLocation(browser, slug, searchType);
       completed++;
       if (completed % 10 === 0 || completed === ALL_SLUGS.length) {
         const elapsed = ((Date.now() - start) / 1000).toFixed(0);
