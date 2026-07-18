@@ -232,7 +232,8 @@ async function scrapeSeLoger(searchType = 'rent') {
     const seenUrls = new Set();
 
     for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
-      const url = `https://www.seloger.com/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=${PARIS_GEOCODE.toUpperCase()}&page=${pageNum}`;
+      const distributionType = searchType === 'sale' ? 'Buy' : 'Rent';
+      const url = `https://www.seloger.com/classified-search?distributionTypes=${distributionType}&estateTypes=Apartment&locations=${PARIS_GEOCODE.toUpperCase()}&page=${pageNum}`;
       console.log(`[SeLoger] Navigating to ${url}`);
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(err => {
         console.warn(`[SeLoger] Navigation warning: ${err.message}`);
