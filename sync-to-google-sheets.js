@@ -26,10 +26,26 @@
 const fs = require('fs');
 const { google } = require('googleapis');
 
-const SHEET_NAME = 'Sheet1';
 const HEADER_ROW = ['Starred', 'Status', 'Source', 'Price (€)', 'Rooms', 'm²', 'Area', 'Address', 'Elevator', 'Furnished', 'Balcony', 'URL'];
 // Column index of each field, matching HEADER_ROW order (0-based)
 const COL = { starred: 0, status: 1, source: 2, price: 3, rooms: 4, sqm: 5, area: 6, address: 7, elevator: 8, furnished: 9, balcony: 10, url: 11 };
+
+async function ensureSheetExists(sheets, sheetId, sheetName) {
+  // Rent and sale prices are wildly different scales (hundreds vs
+  // millions of euros) — a separate tab per type keeps sorting/filtering
+  // sane, rather than mixing both into one sheet with a Type column.
+  // Auto-creates the tab if it doesn't exist yet, so this never depends
+  // on a manual one-time setup step being remembered.
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const exists = meta.data.sheets.some(s => s.properties.title === sheetName);
+  if (!exists) {
+    console.log(`[Sheets] Tab "${sheetName}" doesn't exist yet — creating it.`);
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] }
+    });
+  }
+}
 
 function getAuth() {
   const credsJson = process.env.GOOGLE_SHEETS_CREDENTIALS;
@@ -49,13 +65,13 @@ function yesNoBlank(v) {
   return '';
 }
 
-async function readExistingStarred(sheets, sheetId) {
+async function readExistingStarred(sheets, sheetId, sheetName) {
   // Returns a Map from URL -> { starred, rowValues } for everything
   // currently in the sheet, so we know what to carry forward.
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAME}!A2:L`
+      range: `${sheetName}!A2:L`
     });
     const rows = res.data.values || [];
     const map = new Map();
@@ -76,7 +92,7 @@ async function readExistingStarred(sheets, sheetId) {
   }
 }
 
-async function syncToGoogleSheets(listingsJsonPath) {
+async function syncToGoogleSheets(listingsJsonPath, sheetName = 'Sheet1') {
   const sheetId = process.env.GOOGLE_SHEET_ID;
   if (!sheetId) {
     throw new Error('GOOGLE_SHEET_ID environment variable is not set.');
@@ -88,8 +104,10 @@ async function syncToGoogleSheets(listingsJsonPath) {
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
 
-  console.log(`[Sheets] Reading existing sheet ${sheetId}...`);
-  const existingByUrl = await readExistingStarred(sheets, sheetId);
+  await ensureSheetExists(sheets, sheetId, sheetName);
+
+  console.log(`[Sheets] Reading existing "${sheetName}" tab in sheet ${sheetId}...`);
+  const existingByUrl = await readExistingStarred(sheets, sheetId, sheetName);
   console.log(`[Sheets] Found ${existingByUrl.size} existing row(s), ${[...existingByUrl.values()].filter(v => v.starred).length} starred.`);
 
   const freshUrls = new Set(freshListings.map(l => l.url));
@@ -138,12 +156,12 @@ async function syncToGoogleSheets(listingsJsonPath) {
   // isn't meaningful here anyway (the person can sort/filter in Sheets).
   await sheets.spreadsheets.values.clear({
     spreadsheetId: sheetId,
-    range: `${SHEET_NAME}!A2:L`
+    range: `${sheetName}!A2:L`
   });
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
-    range: `${SHEET_NAME}!A1:L1`,
+    range: `${sheetName}!A1:L1`,
     valueInputOption: 'RAW',
     requestBody: { values: [HEADER_ROW] }
   });
@@ -151,7 +169,7 @@ async function syncToGoogleSheets(listingsJsonPath) {
   if (outputRows.length > 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAME}!A2`,
+      range: `${sheetName}!A2`,
       valueInputOption: 'RAW',
       requestBody: { values: outputRows }
     });
@@ -161,8 +179,16 @@ async function syncToGoogleSheets(listingsJsonPath) {
 }
 
 async function main() {
-  const jsonPath = process.argv[2] || 'listings.json';
-  await syncToGoogleSheets(jsonPath);
+  const rentPath = process.argv[2] || 'listings.json';
+  const salePath = process.argv[3]; // optional - only sync sale if provided
+
+  await syncToGoogleSheets(rentPath, 'Sheet1');
+
+  if (salePath && fs.existsSync(salePath)) {
+    await syncToGoogleSheets(salePath, 'Sale');
+  } else if (salePath) {
+    console.log(`[Sheets] Sale file "${salePath}" was specified but doesn't exist — skipping sale sync.`);
+  }
 }
 
 if (require.main === module) {
