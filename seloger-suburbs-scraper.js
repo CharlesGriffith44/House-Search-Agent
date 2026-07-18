@@ -244,7 +244,8 @@ async function scrapeTown(town, searchType) {
     const seenUrls = new Set();
 
     for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
-      const url = `https://www.seloger.com/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=${town.geoCode.toUpperCase()}&page=${pageNum}`;
+      const distributionType = searchType === 'sale' ? 'Buy' : 'Rent';
+      const url = `https://www.seloger.com/classified-search?distributionTypes=${distributionType}&estateTypes=Apartment&locations=${town.geoCode.toUpperCase()}&page=${pageNum}`;
 
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
       await new Promise(r => setTimeout(r, 2000));
