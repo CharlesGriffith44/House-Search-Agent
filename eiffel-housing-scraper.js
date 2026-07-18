@@ -81,14 +81,20 @@ async function scrapeEiffelHousing(searchType = 'rent') {
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setDefaultNavigationTimeout(20000);
 
-    const MAX_PAGES = 15;
+    const basePath = searchType === 'sale'
+      ? 'https://eiffel-housing.com/en/sales/'
+      : 'https://eiffel-housing.com/en/locations/';
+    // Sale inventory confirmed live at just 4 listings — far smaller
+    // than rent's 127, so pagination will almost certainly stop after
+    // page 1, but the mechanism is left in place in case that changes.
+    const MAX_PAGES = searchType === 'sale' ? 3 : 15;
     const allListings = [];
     const seenUrls = new Set();
 
     for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
       const url = pageNum === 1
-        ? 'https://eiffel-housing.com/en/locations/'
-        : `https://eiffel-housing.com/en/locations/?pagination=${pageNum}`;
+        ? basePath
+        : `${basePath}?pagination=${pageNum}`;
 
       console.log(`[Eiffel Housing] Navigating to ${url}`);
       await page.goto(url, { waitUntil: 'networkidle0', timeout: 20000 }).catch(() => {});
