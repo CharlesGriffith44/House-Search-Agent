@@ -20,13 +20,18 @@ async function main() {
   const pageNum = parseInt(process.argv[3], 10);
 
   if (!category || !pageNum) {
-    console.error('Usage: node scrape-single-parisrental-page.js <furnished|unfurnished> <page-number>');
+    console.error('Usage: node scrape-single-parisrental-page.js <furnished|unfurnished|sale> <page-number>');
     process.exit(1);
   }
 
+  // The category itself determines the type — 'sale' is its own category
+  // (confirmed live at just 4 listings, no pagination needed), separate
+  // from the two rent categories.
+  const searchType = category === 'sale' ? 'sale' : 'rent';
+
   console.log(`[ParisRental-${category}-${pageNum}] Scraping in isolation...`);
   const start = Date.now();
-  const result = await scrapeSinglePage(category, pageNum, 'rent');
+  const result = await scrapeSinglePage(category, pageNum, searchType);
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
   console.log(`[ParisRental-${category}-${pageNum}] Done in ${elapsed}s: ${result.listings.length} listings${result.error ? ', ERROR: ' + result.error : ''}`);
