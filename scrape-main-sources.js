@@ -13,7 +13,7 @@ const fs = require('fs');
 const { combineAllSources } = require('./combine-sources');
 
 async function main() {
-  const searchType = process.argv[2] === 'purchase' ? 'purchase' : 'rent';
+  const searchType = process.argv[2] === 'sale' ? 'sale' : 'rent';
   const fetchDetails = process.argv[3] === 'details';
 
   console.log(`Scraping main sources for ${searchType}${fetchDetails ? ' (with detail enrichment)' : ''} (SeLoger-Suburbs and ParisRental excluded — run separately)...`);
@@ -22,8 +22,9 @@ async function main() {
   console.log(`\nMain sources total: ${data.totalListings}`);
   data.sourceStatus.forEach(s => console.log(`  ${s.source}: ${s.error ? 'FAILED - ' + s.error : s.found + ' listings'}`));
 
-  fs.writeFileSync('output-main.json', JSON.stringify(data, null, 2));
-  console.log('\n✅ Wrote output-main.json');
+  const outputFilename = searchType === 'sale' ? 'output-main-sale.json' : 'output-main.json';
+  fs.writeFileSync(outputFilename, JSON.stringify(data, null, 2));
+  console.log(`\n✅ Wrote ${outputFilename}`);
 }
 
 main().then(() => process.exit(0)).catch(err => {
