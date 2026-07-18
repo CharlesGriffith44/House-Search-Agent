@@ -69,6 +69,32 @@
     color: var(--brass-light);
   }
 
+  .type-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .type-toggle-btn {
+    padding: 0.5rem 1.4rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--brass);
+    background: transparent;
+    color: var(--brass-light);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .type-toggle-btn:hover { background: var(--green-deep); }
+
+  .type-toggle-btn.active {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--white);
+  }
+
   main {
     max-width: 1400px;
     margin: 0 auto;
@@ -303,8 +329,12 @@
 
 <header>
   <div class="eyebrow">Your Friend in Paris</div>
-  <h1>Paris &amp; Île-de-France Rentals</h1>
-  <p>Every listing pulled together from 9 agencies, refreshed automatically. Filter by arrondissement or suburb below — however each agency wrote the address, it's grouped the same way here.</p>
+  <h1 id="page-title">Paris &amp; Île-de-France Rentals</h1>
+  <p>Every listing pulled together from 10 agencies, refreshed automatically. Filter by arrondissement or suburb below — however each agency wrote the address, it's grouped the same way here.</p>
+  <div class="type-toggle">
+    <button class="type-toggle-btn active" id="toggle-rent" data-type="rent">Rent</button>
+    <button class="type-toggle-btn" id="toggle-sale" data-type="sale">Buy</button>
+  </div>
   <div id="meta-line">Loading…</div>
 </header>
 
@@ -410,6 +440,7 @@
   const ARR_COUNT = 20;
   const state = {
     listings: [],
+    listingType: 'rent',
     filters: { areas: new Set(), source: '', minPrice: null, maxPrice: null, bedrooms: null, bathrooms: null, minSqm: null, maxSqm: null, elevator: false, furnished: false, balcony: false, search: '' },
     sort: { key: 'price', dir: 'asc' }
   };
@@ -596,11 +627,9 @@
     });
   }
 
-  async function init() {
-    buildSpiral();
-    buildSuburbChips();
-    wireControls();
-
+  async function loadListings() {
+    document.getElementById('loading').style.display = '';
+    const filename = state.listingType === 'sale' ? 'listings-sale.json' : 'listings.json';
     try {
       // Cache-busting query param added after a real issue found live:
       // cache: 'no-store' only controls the BROWSER's own cache, not
@@ -609,19 +638,46 @@
       // of client cache-control headers. Appending a changing query
       // string forces every load to be treated as a genuinely different
       // URL, sidestepping CDN caching entirely.
-      const res = await fetch('listings.json?t=' + Date.now(), { cache: 'no-store' });
+      const res = await fetch(filename + '?t=' + Date.now(), { cache: 'no-store' });
       const data = await res.json();
       state.listings = data.listings || [];
       document.getElementById('meta-line').textContent =
         `${data.totalListings} listings · updated ${new Date(data.generatedAt).toLocaleString()}`;
     } catch (err) {
-      document.getElementById('meta-line').textContent = 'Could not load listings.json — is this page being served alongside it?';
+      document.getElementById('meta-line').textContent = `Could not load ${filename} — is this page being served alongside it?`;
       console.error(err);
     }
-
     document.getElementById('loading').style.display = 'none';
     populateSourceOptions();
     render();
+  }
+
+  function wireTypeToggle() {
+    const rentBtn = document.getElementById('toggle-rent');
+    const saleBtn = document.getElementById('toggle-sale');
+    const title = document.getElementById('page-title');
+
+    function setType(type) {
+      if (state.listingType === type) return;
+      state.listingType = type;
+      rentBtn.classList.toggle('active', type === 'rent');
+      saleBtn.classList.toggle('active', type === 'sale');
+      title.textContent = type === 'sale'
+        ? 'Paris & Île-de-France Properties For Sale'
+        : 'Paris & Île-de-France Rentals';
+      loadListings();
+    }
+
+    rentBtn.addEventListener('click', () => setType('rent'));
+    saleBtn.addEventListener('click', () => setType('sale'));
+  }
+
+  async function init() {
+    buildSpiral();
+    buildSuburbChips();
+    wireControls();
+    wireTypeToggle();
+    await loadListings();
   }
 
   init();
