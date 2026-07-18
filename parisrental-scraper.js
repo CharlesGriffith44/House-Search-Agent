@@ -29,7 +29,7 @@
 
 const parseListing = require('./parse-listing');
 
-const CATEGORIES = [
+const RENT_CATEGORIES = [
   {
     name: 'furnished',
     baseUrl: 'https://en.parisrental.com/furnished-apartments/',
@@ -41,6 +41,21 @@ const CATEGORIES = [
     linkPrefix: '/empty-apartments/'
   }
 ];
+
+// Sale inventory confirmed live at just 4 listings — genuinely tiny, no
+// pagination needed in practice, but MAX_PAGES stays shared/generous in
+// case that changes.
+const SALE_CATEGORIES = [
+  {
+    name: 'sale',
+    baseUrl: 'https://en.parisrental.com/apartments-for-sale/',
+    linkPrefix: '/apartments-for-sale/'
+  }
+];
+
+// Kept for backward compatibility with any external reference to the
+// original name.
+const CATEGORIES = RENT_CATEGORIES;
 
 const MAX_PAGES = 8; // safety margin above the ~6-7 pages actually observed for furnished
 
@@ -144,7 +159,8 @@ async function scrapeParisRental(searchType = 'rent') {
     const allListings = [];
     const seenUrls = new Set();
 
-    for (const category of CATEGORIES) {
+    const categories = searchType === 'sale' ? SALE_CATEGORIES : RENT_CATEGORIES;
+    for (const category of categories) {
       if (allListings.length >= 100) break;
       await scrapeCategory(browser, category, searchType, seenUrls, allListings);
     }
@@ -173,7 +189,7 @@ async function scrapeParisRental(searchType = 'rent') {
 // straightforward IP block (which isolation may not fix at all, since
 // every isolated job still originates from the same GitHub IP range).
 async function scrapeSinglePage(categoryName, pageNum, searchType = 'rent') {
-  const category = CATEGORIES.find(c => c.name === categoryName);
+  const category = [...RENT_CATEGORIES, ...SALE_CATEGORIES].find(c => c.name === categoryName);
   if (!category) {
     return { category: categoryName, page: pageNum, listings: [], error: `Unknown category: ${categoryName}` };
   }
@@ -219,4 +235,4 @@ async function scrapeSinglePage(categoryName, pageNum, searchType = 'rent') {
   }
 }
 
-module.exports = { scrapeParisRental, scrapeSinglePage, CATEGORIES };
+module.exports = { scrapeParisRental, scrapeSinglePage, CATEGORIES, RENT_CATEGORIES, SALE_CATEGORIES };
