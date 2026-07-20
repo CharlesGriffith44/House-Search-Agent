@@ -48,7 +48,15 @@ const PARIS_ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => {
 function getListingSelector(searchType) {
   return searchType === 'sale' ? 'a[href*="/annonces/achat/"]' : 'a[href*="/annonces/locations/"]';
 }
-const DETAIL_FETCH_CONCURRENCY = 5; // raised from 3 given listing volume grew substantially (up to 450/location, from ~100 before) - modest increase given SeLoger's known anti-bot sensitivity
+// Real evidence found live: raising this to 5 was WRONG - detail-page
+// requests started returning tiny ~430-character blocked/challenge
+// pages (vs normal 50,000-90,000 characters) starting around the 9th
+// request in a batch of 463. This is DataDome's anti-bot system
+// detecting the rapid-fire volume and serving degraded content instead
+// of real pages. Lowered to 2 (below the original 3) plus added
+// inter-request spacing and retry-on-block logic below, rather than
+// just reverting the number alone.
+const DETAIL_FETCH_CONCURRENCY = 2;
 
 async function getBrowser() {
   // Switched to puppeteer-extra + stealth plugin after real evidence of
@@ -126,9 +134,14 @@ async function mapWithConcurrency(items, limit, fn) {
   return results;
 }
 
-async function fetchListingDetails(browser, url) {
+async function fetchListingDetails(browser, url, isRetry = false) {
   let page;
   try {
+    // Small randomized delay before each request - spaces out requests
+    // to look less like an automated batch, reducing the chance of
+    // triggering DataDome's rate-based blocking.
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
+
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
@@ -142,6 +155,15 @@ async function fetchListingDetails(browser, url) {
     });
 
     await page.close();
+
+    // Real evidence found live: a genuine SeLoger listing page always
+    // returns 50,000+ characters. Anything under ~2000 is a DataDome
+    // block/challenge page, not real content.
+    if (bodyText.length < 2000 && !isRetry) {
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
+      return fetchListingDetails(browser, url, true);
+    }
+
     return extractDetailFeatures(bodyText);
   } catch (error) {
     if (page) { try { await page.close(); } catch (e) {} }
@@ -149,33 +171,36 @@ async function fetchListingDetails(browser, url) {
   }
 }
 
-async function enrichWithDetails(browser, listings) {
+async function enrichWithDetails(listings) {
   if (listings.length === 0) return listings;
-  const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
-    fetchListingDetails(browser, listing.url)
-  );
-  return listings.map((listing, i) => {
-    const d = details[i];
-    const bathrooms = listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail;
-    // Real evidence: SeLoger detail pages commonly state chambres
-    // explicitly even when the summary card only shows pièces count —
-    // fills in a real bedroom count instead of leaving it null.
-    // Sanity check added after a real contamination bug found live:
-    // bedroomsFromDetail sometimes picks up an UNRELATED property's room
-    // count from a detail page's own 'similar listings' sidebar (a studio
-    // showed rooms:1 but bedroomsFromDetail:5 — logically impossible,
-    // since bedrooms can never exceed the listing's own total room
-    // count). Rejecting values that fail this basic consistency check is
-    // safer than trying to guess exactly where on the page to stop
-    // reading, which risks cutting off the real Caractéristiques
-    // checklist if it happens to appear later on the page.
-    let bedroomsFromDetail = d.bedroomsFromDetail;
-    if (bedroomsFromDetail != null && listing.rooms != null && bedroomsFromDetail > listing.rooms) {
-      bedroomsFromDetail = null;
-    }
-    const bedrooms = listing.bedrooms != null ? listing.bedrooms : bedroomsFromDetail;
-    return { ...listing, elevator: d.elevator, balcony: d.balcony, furnished: d.furnished, bathrooms, bedrooms };
-  });
+  // EXPERIMENTAL: real evidence showed every detail-page request blocked
+  // from the very first one, with retries also failing 100% of the time
+  // - a different, more severe pattern than earlier testing (which
+  // showed the first ~8 requests succeeding before blocking kicked in).
+  // This suggests the anti-bot system may be flagging the ENTIRE
+  // session during the rapid pagination phase itself (30 page loads),
+  // not specifically reacting to detail-page request volume. Testing
+  // whether a genuinely fresh browser instance (new cookies/context,
+  // launched only now) recovers any success at all, vs reusing the
+  // same browser that just finished pagination.
+  const freshBrowser = await getBrowser();
+  try {
+    const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
+      fetchListingDetails(freshBrowser, listing.url)
+    );
+    return listings.map((listing, i) => {
+      const d = details[i];
+      const bathrooms = listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail;
+      let bedroomsFromDetail = d.bedroomsFromDetail;
+      if (bedroomsFromDetail != null && listing.rooms != null && bedroomsFromDetail > listing.rooms) {
+        bedroomsFromDetail = null;
+      }
+      const bedrooms = listing.bedrooms != null ? listing.bedrooms : bedroomsFromDetail;
+      return { ...listing, elevator: d.elevator, balcony: d.balcony, furnished: d.furnished, bathrooms, bedrooms };
+    });
+  } finally {
+    await freshBrowser.close();
+  }
 }
 
 // Scrapes ONE arrondissement in complete isolation (own browser, meant to
@@ -242,9 +267,15 @@ async function scrapeArrondissement(arr, searchType) {
 
     const valid = allParsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
 
-    const enriched = await enrichWithDetails(browser, valid);
+    // Close the pagination browser/page before enrichment, which now
+    // launches a genuinely fresh browser of its own (see the
+    // EXPERIMENTAL note in enrichWithDetails above).
     await page.close();
     await browser.close();
+    browser = null;
+    page = null;
+
+    const enriched = await enrichWithDetails(valid);
     return { arrondissement: arr.arrondissement, listings: enriched, error: null };
 
   } catch (error) {
