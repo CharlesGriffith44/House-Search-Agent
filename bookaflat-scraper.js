@@ -46,6 +46,66 @@ async function getBrowser() {
   });
 }
 
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await fn(items[current], current);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+// Same cautious approach proven for SeLoger - low concurrency, small
+// delays, detecting+retrying suspiciously short responses. Low cost
+// here given Book-a-Flat's tiny (~30-36) listing count.
+const DETAIL_FETCH_CONCURRENCY = 2;
+
+async function fetchListingDetails(browser, url, isRetry = false) {
+  let page;
+  try {
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
+    page = await browser.newPage();
+    await page.setDefaultNavigationTimeout(20000);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+    const bodyText = await page.evaluate(() => document.body.innerText || '');
+    await page.close();
+
+    if (bodyText.length < 500 && !isRetry) {
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
+      return fetchListingDetails(browser, url, true);
+    }
+
+    return extractDetailFeatures(bodyText);
+  } catch (error) {
+    if (page) { try { await page.close(); } catch (e) {} }
+    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null };
+  }
+}
+
+async function enrichWithDetails(browser, listings) {
+  if (listings.length === 0) return listings;
+  const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
+    fetchListingDetails(browser, listing.url)
+  );
+  return listings.map((listing, i) => {
+    const d = details[i];
+    return {
+      ...listing,
+      elevator: d.elevator,
+      balcony: d.balcony,
+      furnished: d.furnished,
+      bathrooms: listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail,
+      bedrooms: listing.bedrooms != null ? listing.bedrooms : d.bedroomsFromDetail
+    };
+  });
+}
+
 function extractListings() {
   const results = [];
   const seen = new Set();
@@ -148,10 +208,13 @@ async function scrapeBookAFlat(searchType = 'rent') {
       }
     }
 
-    await browser.close();
-    console.log(`[Book-a-Flat] Total unique listings: ${allListings.length}`);
+    console.log(`[Book-a-Flat] Fetching detail pages for ${allListings.length} listings (concurrency: ${DETAIL_FETCH_CONCURRENCY})...`);
+    const enrichedListings = await enrichWithDetails(browser, allListings);
 
-    return { source: 'Book-a-Flat', searchType, listings: allListings, error: null };
+    await browser.close();
+    console.log(`[Book-a-Flat] Total unique listings: ${enrichedListings.length}`);
+
+    return { source: 'Book-a-Flat', searchType, listings: enrichedListings, error: null };
 
   } catch (error) {
     console.error(`[Book-a-Flat] Fatal error: ${error.message}`);
