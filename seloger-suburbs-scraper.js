@@ -26,7 +26,7 @@ const { extractDetailFeatures } = require('./parse-listing');
 function getListingSelector(searchType) {
   return searchType === 'sale' ? 'a[href*="/annonces/achat/"]' : 'a[href*="/annonces/locations/"]';
 }
-const DETAIL_FETCH_CONCURRENCY = 3;
+const DETAIL_FETCH_CONCURRENCY = 5; // raised from 3 given listing volume grew substantially (up to 450/location, from ~100 before) - modest increase given SeLoger's known anti-bot sensitivity
 // FIXED: was 3, causing nested concurrency (3 towns x 3 detail-fetches =
 // up to 9-12 simultaneous pages on ONE browser). Live evidence proved this
 // broke real data: Puteaux has 173 active listings (confirmed via direct
