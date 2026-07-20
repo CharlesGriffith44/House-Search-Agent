@@ -152,6 +152,14 @@ async function main() {
   console.log(`Found ${arrFiles.length} SeLoger arrondissement result file(s): ${arrFiles.join(', ') || '(none)'}`);
   console.log(`Found ${parisRentalFiles.length} ParisRental category result file(s): ${parisRentalFiles.join(', ') || '(none)'}`);
 
+  // DanielFeau moved to its own isolated job (see scrape-single-danielfeau.js)
+  // after adding real detail-page enrichment - optional here since the job
+  // could theoretically fail without blocking the rest of the merge.
+  const danielFeauFilename = searchType === 'sale' ? 'output-danielfeau-sale.json' : 'output-danielfeau.json';
+  const danielFeauPath = path.join(artifactsDir, danielFeauFilename);
+  const danielFeauResult = fs.existsSync(danielFeauPath) ? loadJson(danielFeauPath) : null;
+  console.log(`DanielFeau result file: ${fs.existsSync(danielFeauPath) ? danielFeauFilename : '(not found)'}`);
+
   const allListings = [...mainData.listings];
   const allSourceStatus = [...mainData.sourceStatus];
   // Dedup by URL: the all-Paris search and per-arrondissement searches can
@@ -207,6 +215,23 @@ async function main() {
       }
       allSourceStatus.push({ source: label, found: added, error: null });
     }
+  }
+
+  if (danielFeauResult) {
+    if (danielFeauResult.error) {
+      allSourceStatus.push({ source: 'DanielFeau', found: 0, error: danielFeauResult.error });
+    } else {
+      let added = 0;
+      for (const listing of danielFeauResult.listings) {
+        if (seenUrls.has(listing.url)) continue;
+        seenUrls.add(listing.url);
+        allListings.push(listing);
+        added++;
+      }
+      allSourceStatus.push({ source: 'DanielFeau', found: added, error: null });
+    }
+  } else {
+    allSourceStatus.push({ source: 'DanielFeau', found: 0, error: 'Isolated job artifact not found' });
   }
 
   const beforeRoomShareFilter = allListings.length;
