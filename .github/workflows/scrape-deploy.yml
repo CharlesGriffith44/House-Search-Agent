@@ -320,10 +320,57 @@ jobs:
           path: output-parisrental-sale-1.json
           retention-days: 1
 
-  # Downloads every artifact from all four jobs above, merges everything,
+  # DanielFeau moved to its own isolated job after adding real detail-page
+  # enrichment for elevator/furnished/bathroom info - can have up to 600
+  # listings, and enriching all of them at a cautious, anti-bot-safe rate
+  # (low concurrency, small delays) needs more time than scrape-main's
+  # shared 15-minute budget with Barnes/Junot/SeLoger-main could afford.
+  scrape-danielfeau:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer
+      - name: Scrape DanielFeau rent in isolation
+        run: node scrape-single-danielfeau.js rent
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-danielfeau
+          path: output-danielfeau.json
+          retention-days: 1
+
+  scrape-danielfeau-sale:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer
+      - name: Scrape DanielFeau sale in isolation
+        run: node scrape-single-danielfeau.js sale
+      - name: Upload sale result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-danielfeau-sale
+          path: output-danielfeau-sale.json
+          retention-days: 1
+
+  # Downloads every artifact from all six jobs above, merges everything,
   # and writes/commits the final Excel file.
   merge-and-commit:
-    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale]
+    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale, scrape-danielfeau, scrape-danielfeau-sale]
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
