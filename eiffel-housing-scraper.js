@@ -45,6 +45,71 @@ async function getBrowser() {
   });
 }
 
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await fn(items[current], current);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+// Elevator/furnished already work well from the summary card here
+// (confirmed above) — this specifically targets bathroom count, which
+// (like every other source) is rarely stated in the brief summary text.
+// Same cautious approach proven for SeLoger, applied defensively even
+// though Eiffel Housing's own anti-bot behavior hasn't been directly
+// tested - low cost given the small (~127-150) listing count.
+const DETAIL_FETCH_CONCURRENCY = 2;
+
+async function fetchListingDetails(browser, url, isRetry = false) {
+  let page;
+  try {
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
+    page = await browser.newPage();
+    await page.setDefaultNavigationTimeout(20000);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+    const bodyText = await page.evaluate(() => document.body.innerText || '');
+    await page.close();
+
+    if (bodyText.length < 500 && !isRetry) {
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
+      return fetchListingDetails(browser, url, true);
+    }
+
+    return extractDetailFeatures(bodyText);
+  } catch (error) {
+    if (page) { try { await page.close(); } catch (e) {} }
+    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null };
+  }
+}
+
+async function enrichWithDetails(browser, listings) {
+  if (listings.length === 0) return listings;
+  const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
+    fetchListingDetails(browser, listing.url)
+  );
+  return listings.map((listing, i) => {
+    const d = details[i];
+    return {
+      ...listing,
+      // Elevator/furnished/balcony already reliable from the summary
+      // card for this source - keep those as-is rather than risk
+      // overwriting good data with a detail-page parse that could fail.
+      // Only bathrooms/bedrooms get the fallback-if-null treatment,
+      // since those are what's actually missing from the summary text.
+      bathrooms: listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail,
+      bedrooms: listing.bedrooms != null ? listing.bedrooms : d.bedroomsFromDetail
+    };
+  });
+}
+
 function extractListings() {
   const results = [];
   const seen = new Set();
@@ -136,10 +201,13 @@ async function scrapeEiffelHousing(searchType = 'rent') {
       if (allListings.length >= 150) break; // cap reached
     }
 
-    await browser.close();
-    console.log(`[Eiffel Housing] Total listings: ${allListings.length}`);
+    console.log(`[Eiffel Housing] Fetching detail pages for ${allListings.length} listings (concurrency: ${DETAIL_FETCH_CONCURRENCY})...`);
+    const enrichedListings = await enrichWithDetails(browser, allListings);
 
-    return { source: 'Eiffel Housing', searchType, listings: allListings, error: null };
+    await browser.close();
+    console.log(`[Eiffel Housing] Total listings: ${enrichedListings.length}`);
+
+    return { source: 'Eiffel Housing', searchType, listings: enrichedListings, error: null };
 
   } catch (error) {
     console.error(`[Eiffel Housing] Fatal error: ${error.message}`);
