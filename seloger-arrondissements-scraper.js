@@ -171,23 +171,15 @@ async function fetchListingDetails(browser, url, isRetry = false) {
   }
 }
 
-async function enrichWithDetails(listings) {
+async function enrichWithDetails(listings, label) {
   if (listings.length === 0) return listings;
-  // EXPERIMENTAL: real evidence showed every detail-page request blocked
-  // from the very first one, with retries also failing 100% of the time
-  // - a different, more severe pattern than earlier testing (which
-  // showed the first ~8 requests succeeding before blocking kicked in).
-  // This suggests the anti-bot system may be flagging the ENTIRE
-  // session during the rapid pagination phase itself (30 page loads),
-  // not specifically reacting to detail-page request volume. Testing
-  // whether a genuinely fresh browser instance (new cookies/context,
-  // launched only now) recovers any success at all, vs reusing the
-  // same browser that just finished pagination.
   const freshBrowser = await getBrowser();
   try {
     const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
       fetchListingDetails(freshBrowser, listing.url)
     );
+    const blocked = details.filter(d => d.elevator === null && d.balcony === null && d.furnished === null && d.bathroomsFromDetail === null && d.bedroomsFromDetail === null).length;
+    console.log(`[SeLoger-${label}] Detail enrichment: ${listings.length - blocked}/${listings.length} succeeded, ${blocked} blocked/failed`);
     return listings.map((listing, i) => {
       const d = details[i];
       const bathrooms = listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail;
@@ -275,7 +267,7 @@ async function scrapeArrondissement(arr, searchType) {
     browser = null;
     page = null;
 
-    const enriched = await enrichWithDetails(valid);
+    const enriched = await enrichWithDetails(valid, arr.slug);
     return { arrondissement: arr.arrondissement, listings: enriched, error: null };
 
   } catch (error) {
