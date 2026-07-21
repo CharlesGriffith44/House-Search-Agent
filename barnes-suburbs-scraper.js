@@ -44,8 +44,8 @@ const NEXT_BUTTON_SELECTOR = 'a[href^="javascript:annonces_suivantes"]';
 // popular towns. Kept at 100 for rent (comfortably above any real rent
 // count seen) and raised to 250 for purchase (comfortable margin above
 // the confirmed 151 real max).
-const MAX_LISTINGS_PER_TOWN_BY_TYPE = { rent: 100, purchase: 250 };
-const MAX_PAGE_CLICKS_BY_TYPE = { rent: 10, purchase: 20 };
+const MAX_LISTINGS_PER_TOWN_BY_TYPE = { rent: 100, sale: 250 };
+const MAX_PAGE_CLICKS_BY_TYPE = { rent: 10, sale: 20 };
 const TOWN_CONCURRENCY = 2; // kept modest given the earlier nested-concurrency lesson from SeLoger-suburbs
 
 function extractListings(townSlug) {
@@ -151,7 +151,7 @@ async function scrapeTown(browser, town, searchType) {
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
-    const urlBase = searchType === 'purchase'
+    const urlBase = searchType === 'sale'
       ? 'https://www.barnes-international.com/en/for-sale/france/'
       : 'https://www.barnes-international.com/en/for-rent/france/';
     // Correct format: {slug}-{postal}/ — confirmed live, NOT {slug}.html
