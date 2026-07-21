@@ -151,8 +151,14 @@ function parseListing(rawText) {
   const roomsMatch = text.match(/\bT(\d+)\b|\b(\d+)\s*(?:pi[eè]ces?|rooms?)(?![a-zA-Z])/i);
   const rooms = roomsMatch ? parseInt(roomsMatch[1] || roomsMatch[2], 10) : bedrooms;
 
-  const bathroomsMatch = text.match(/(\d+)\s*(?:bathrooms?|salles?\s+de\s+bains?|salles?\s+d'eau|wc|toilettes?)(?![a-zA-Z])/i);
-  const bathrooms = bathroomsMatch ? parseInt(bathroomsMatch[1], 10) : null;
+  // Real bug found live via Perenium testing: real listings consistently
+  // phrase this as natural prose ("une salle d'eau avec WC", "une salle
+  // de bains") using the French word for "a/one", not a numeric digit -
+  // the old (\d+)-only pattern never matched this, silently returning
+  // null for every single listing despite bathroom info genuinely being
+  // present and readable on the page.
+  const bathroomsMatch = text.match(/(\d+|une?)\s*(?:bathrooms?|salles?\s+de\s+bains?|salles?\s+d'eau|wc|toilettes?)(?![a-zA-Z])/i);
+  const bathrooms = bathroomsMatch ? (/^une?$/i.test(bathroomsMatch[1]) ? 1 : parseInt(bathroomsMatch[1], 10)) : null;
 
   // ---- SURFACE -------------------------------------------------------------
   // Added 'sqm' after finding Eiffel Housing uses this English
@@ -336,11 +342,16 @@ function extractDetailFeatures(pageText) {
   // parseListing()'s own bathroom field, which reads the summary card —
   // this is specifically for sources where bathroom count only appears
   // on the detail page.
+  //
+  // Real bug found live via Perenium testing: real listings consistently
+  // phrase this as natural prose ("une salle d'eau avec WC") using the
+  // French word for "a/one", not a numeric digit - recognizing "un(e)"
+  // as equivalent to 1 recovers a genuine, previously all-null field.
   let bathroomsFromDetail = null;
-  const bathMatch = text.match(/(\d+)\s*salles?\s*(?:de)?\s*(?:bain|douche|d'eau)s?/i)
-    || text.match(/(\d+)\s*(?:bathrooms?|wc|toilettes?|sdb)\b/i);
+  const bathMatch = text.match(/(\d+|une?)\s*salles?\s*(?:de)?\s*(?:bain|douche|d'eau)s?/i)
+    || text.match(/(\d+|une?)\s*(?:bathrooms?|wc|toilettes?|sdb)\b/i);
   if (bathMatch) {
-    bathroomsFromDetail = parseInt(bathMatch[1], 10);
+    bathroomsFromDetail = /^une?$/i.test(bathMatch[1]) ? 1 : parseInt(bathMatch[1], 10);
   }
 
   // Bedroom count from the fuller detail-page description. Real evidence:
