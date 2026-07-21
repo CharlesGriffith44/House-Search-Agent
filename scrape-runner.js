@@ -13,8 +13,8 @@ const { extractDetailFeatures } = require('./parse-listing');
 // MAX_LISTINGS=100 that under-captured BOTH. Each set generously above
 // its own real confirmed total (see source-config.js) to comfortably
 // capture full inventory with margin.
-const MAX_LISTINGS_BY_TYPE = { rent: 200, purchase: 1000 };
-const MAX_PAGE_CLICKS_BY_TYPE = { rent: 15, purchase: 50 };
+const MAX_LISTINGS_BY_TYPE = { rent: 200, sale: 1000 };
+const MAX_PAGE_CLICKS_BY_TYPE = { rent: 15, sale: 50 };
 const DETAIL_FETCH_CONCURRENCY = 3; // keep modest — 100 detail pages is already a lot more load on Barnes than the fast path
 
 async function getBrowser() {
