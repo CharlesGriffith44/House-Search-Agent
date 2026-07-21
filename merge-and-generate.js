@@ -160,6 +160,15 @@ async function main() {
   const danielFeauResult = fs.existsSync(danielFeauPath) ? loadJson(danielFeauPath) : null;
   console.log(`DanielFeau result file: ${fs.existsSync(danielFeauPath) ? danielFeauFilename : '(not found)'}`);
 
+  // Eiffel Housing moved to its own isolated job (see
+  // scrape-single-eiffel-housing.js) after adding real detail-page
+  // enrichment - confirmed live that scrape-main was timing out mid-way
+  // through its enrichment step.
+  const eiffelHousingFilename = searchType === 'sale' ? 'output-eiffel-housing-sale.json' : 'output-eiffel-housing.json';
+  const eiffelHousingPath = path.join(artifactsDir, eiffelHousingFilename);
+  const eiffelHousingResult = fs.existsSync(eiffelHousingPath) ? loadJson(eiffelHousingPath) : null;
+  console.log(`Eiffel Housing result file: ${fs.existsSync(eiffelHousingPath) ? eiffelHousingFilename : '(not found)'}`);
+
   const allListings = [...mainData.listings];
   const allSourceStatus = [...mainData.sourceStatus];
   // Dedup by URL: the all-Paris search and per-arrondissement searches can
@@ -232,6 +241,23 @@ async function main() {
     }
   } else {
     allSourceStatus.push({ source: 'DanielFeau', found: 0, error: 'Isolated job artifact not found' });
+  }
+
+  if (eiffelHousingResult) {
+    if (eiffelHousingResult.error) {
+      allSourceStatus.push({ source: 'Eiffel Housing', found: 0, error: eiffelHousingResult.error });
+    } else {
+      let added = 0;
+      for (const listing of eiffelHousingResult.listings) {
+        if (seenUrls.has(listing.url)) continue;
+        seenUrls.add(listing.url);
+        allListings.push(listing);
+        added++;
+      }
+      allSourceStatus.push({ source: 'Eiffel Housing', found: added, error: null });
+    }
+  } else {
+    allSourceStatus.push({ source: 'Eiffel Housing', found: 0, error: 'Isolated job artifact not found' });
   }
 
   const beforeRoomShareFilter = allListings.length;
