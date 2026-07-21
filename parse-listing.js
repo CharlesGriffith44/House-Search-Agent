@@ -195,7 +195,13 @@ function parseListing(rawText) {
   // "Paris 2 200 €". Combining both cases into one optional-suffix regex
   // caused a real regression: the guard incorrectly also blocked
   // suffixed cases like "1er" when a price happened to follow.
-  const parisMatch = text.match(/Paris\s*\d{1,2}\s*(?:er|ème|eme|e|th|st|nd|rd)\b|Paris\s*\d{1,2}(?!\s*\d)\b/i);
+  // Restricted to 1-20 (valid Paris arrondissements) instead of any 1-2
+  // digit number - real bug found via live sheet data: "Paris 75th" was
+  // showing up as an address, since \d{1,2} allowed any number 1-99 to
+  // match, including "75" (Paris's department code, not a real
+  // arrondissement - only 1-20 exist).
+  const ARR_NUM = '(?:[1-9]|1[0-9]|20)';
+  const parisMatch = text.match(new RegExp(`Paris\\s*${ARR_NUM}\\s*(?:er|ème|eme|e|th|st|nd|rd)\\b|Paris\\s*${ARR_NUM}(?!\\s*\\d)\\b`, 'i'));
   if (parisMatch) {
     address = parisMatch[0].trim();
   } else {
@@ -206,7 +212,12 @@ function parseListing(rawText) {
       // entire rest of the raw text as the "address". Requiring the
       // digit NOT be preceded by a letter rejects that false match while
       // still matching genuine house numbers like "5 rue de la Paix".
-      /(?<![a-zA-Z])(\d+\s+(?:rue|avenue|boulevard|place|square|allée|chemin|quai)[^,\n|]*)/i,
+      // Restricted to same-line whitespace only ([ \t]+, not \s+) after a
+      // real bug found via live sheet data: "27638\nboulevard Maurice
+      // Barres" was matching across the newline, treating an unrelated
+      // number from a completely different line (likely a reference ID)
+      // as if it were the street's own house number.
+      /(?<![a-zA-Z])(\d+[ \t]+(?:rue|avenue|boulevard|place|square|allée|chemin|quai)[^,\n|]*)/i,
       /(\b7\d{4}\b[^,\n|]*)/
     ];
     for (const pattern of addressPatterns) {
@@ -228,7 +239,14 @@ function parseListing(rawText) {
     // badgeWords/priceOnlyLine, filtering out a known non-address pattern
     // rather than blindly trusting whatever line comes first.
     const refNumberLine = /^ref\.?\s*\d+$/i;
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
+    // Real bug found live via Google Sheets data: photo-counter lines
+    // like "1 / 30" or "1 / 11" (meaning "photo 1 of 30") were being
+    // mistaken for a real address. Filtered out of the lines array
+    // itself (not just the usableLine search) so the final lines[0]
+    // fallback below can't pick one up either if it happens to be the
+    // very first line.
+    const photoCounterLine = /^\d+\s*\/\s*\d+$/;
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5 && !photoCounterLine.test(l));
     const usableLine = lines.find(l => !badgeWords.test(l) && !priceOnlyLine.test(l) && !refNumberLine.test(l));
     address = usableLine || lines[0] || '';
   }
