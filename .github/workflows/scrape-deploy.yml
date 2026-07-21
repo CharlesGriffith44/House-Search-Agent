@@ -46,7 +46,12 @@ jobs:
             echo "Not actually 8 AM in Paris right now — skipping (the other seasonal trigger will run instead)."
           fi
 
-  # Runs Barnes, Barnes-Suburbs, Junot, and SeLoger (Paris) in one job, as before.
+  # Runs Barnes, Barnes-Suburbs, Junot, Book-a-Flat, and Perenium in one
+  # job. SeLoger (Paris-wide) moved to its own isolated job below
+  # (scrape-seloger-main) after its page/result cap was removed — an
+  # uncapped run routinely exceeds combine-sources.js's shared 5-minute
+  # per-source timeout, which would silently discard all its progress
+  # every time inside this shared job.
   scrape-main:
     needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
@@ -59,7 +64,7 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth exceljs
-      - name: Scrape main sources (excludes SeLoger-Suburbs)
+      - name: Scrape main sources (excludes SeLoger, SeLoger-Suburbs)
         run: node scrape-main-sources.js rent details
       - name: Upload main sources output
         uses: actions/upload-artifact@v4
@@ -85,13 +90,62 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth exceljs
-      - name: Scrape main sources - sale (excludes SeLoger-Suburbs)
+      - name: Scrape main sources - sale (excludes SeLoger, SeLoger-Suburbs)
         run: node scrape-main-sources.js sale details
       - name: Upload main sources sale output
         uses: actions/upload-artifact@v4
         with:
           name: output-main-sale
           path: output-main-sale.json
+          retention-days: 1
+
+  # SeLoger (Paris-wide) in complete isolation, own job, own timeout — no
+  # cap on pages/listings pulled, by design (see seloger-scraper.js). A
+  # generous 45-minute ceiling here since a full uncapped Paris-wide
+  # pagination run (confirmed live: 20+ pages / 500+ listings within just
+  # the first 100 seconds, still climbing) takes meaningfully longer than
+  # the 15-minute budget scrape-main shares with several other sources,
+  # plus detail-page enrichment on every listing found.
+  scrape-seloger-main:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+      - name: Scrape SeLoger (Paris-wide) rent in isolation
+        run: node scrape-single-seloger.js rent
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-seloger-main
+          path: seloger-main-output.json
+          retention-days: 1
+
+  scrape-seloger-main-sale:
+    needs: check-schedule
+    if: needs.check-schedule.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+      - name: Scrape SeLoger (Paris-wide) sale in isolation
+        run: node scrape-single-seloger.js sale
+      - name: Upload sale result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-seloger-main-sale
+          path: seloger-main-output-sale.json
           retention-days: 1
 
   # Each SeLoger suburb town gets its OWN isolated job (own runner, own
@@ -417,7 +471,7 @@ jobs:
   # Downloads every artifact from all eight jobs above, merges everything,
   # and writes/commits the final Excel file.
   merge-and-commit:
-    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale, scrape-danielfeau, scrape-danielfeau-sale, scrape-eiffel-housing, scrape-eiffel-housing-sale]
+    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-main, scrape-seloger-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale, scrape-danielfeau, scrape-danielfeau-sale, scrape-eiffel-housing, scrape-eiffel-housing-sale]
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8

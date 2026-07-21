@@ -64,7 +64,7 @@ async function runSource(label, promiseFactory, results, sourceStatus) {
 }
 
 async function combineAllSources(searchType = 'rent', options = {}) {
-  const { fetchDetails = false, excludeSeLogerSuburbs = false, excludeParisRental = false, excludeDanielFeau = false, excludeEiffelHousing = false, externalListings = [], externalSourceStatus = [] } = options;
+  const { fetchDetails = false, excludeSeLoger = false, excludeSeLogerSuburbs = false, excludeParisRental = false, excludeDanielFeau = false, excludeEiffelHousing = false, externalListings = [], externalSourceStatus = [] } = options;
   const results = [...externalListings];
   const sourceStatus = [...externalSourceStatus];
 
@@ -76,6 +76,18 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   // pagination confirmed for both via the distributionTypes=Buy/Rent
   // parameter) — the old rent-only gate here is removed.
   //
+  // excludeSeLoger: ADDED after a real regression — SeLoger's own page/
+  // result cap was removed (it now runs until genuinely out of pages, by
+  // design — no time or count limit on how many listings it pulls), which
+  // means a full run routinely exceeds this file's PER_SOURCE_TIMEOUT_MS
+  // (5 min): the shared timeout would silently discard ALL of SeLoger's
+  // progress and report 0 listings, not a partial result, every time it
+  // runs inside scrape-main's shared budget. Same class of problem
+  // DanielFeau and Eiffel Housing hit before being moved to their own
+  // isolated jobs (see below) — SeLoger-main gets the same treatment via
+  // scrape-single-seloger.js, with its own generous per-job timeout and no
+  // 5-minute ceiling at all.
+  //
   // excludeSeLogerSuburbs: RESTORED after a real regression — this option
   // existed in an earlier version (built for the matrix-job architecture,
   // where SeLoger-Suburbs runs as separate isolated GitHub Actions jobs
@@ -85,7 +97,9 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   // passing excludeSeLogerSuburbs: true this whole time — it just had
   // nothing to act on it, so SeLoger-Suburbs kept running unconditionally
   // inside scrape-main using the old single-process code.
-  await runSource('SeLoger', () => scrapeSeLoger(searchType), results, sourceStatus);
+  if (!excludeSeLoger) {
+    await runSource('SeLoger', () => scrapeSeLoger(searchType), results, sourceStatus);
+  }
   if (!excludeSeLogerSuburbs) {
     await runSource('SeLoger-Suburbs', () => scrapeSeLogerSuburbs(searchType), results, sourceStatus);
   }
