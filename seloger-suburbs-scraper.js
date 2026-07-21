@@ -185,7 +185,7 @@ async function fetchListingDetails(browser, url, isRetry = false) {
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
     const bodyText = await page.evaluate(() => {
       const visible = document.body.innerText || '';
@@ -196,20 +196,25 @@ async function fetchListingDetails(browser, url, isRetry = false) {
 
     await page.close();
 
-    // Real evidence found live: a genuine SeLoger listing page always
-    // returns 50,000+ characters. Anything under ~2000 is a DataDome
-    // block/challenge page - detecting and retrying once after a
-    // longer cooldown recovers many of these.
-    if (bodyText.length < 2000 && !isRetry) {
+    // Real bug found live: checking only bodyText.length missed a whole
+    // class of failures - a genuine 403 block returns instantly with
+    // empty content, and extractDetailFeatures('') on empty text
+    // returns elevator:false/balcony:false (their real defaults) rather
+    // than null, so the old "all fields null" check never caught this.
+    const status = response ? response.status() : null;
+    const isBlocked = status === 403 || status === 429 || bodyText.length < 2000;
+    if (isBlocked && !isRetry) {
       await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
       return fetchListingDetails(browser, url, true);
     }
 
-    return extractDetailFeatures(bodyText);
+    const result = extractDetailFeatures(bodyText);
+    result._wasBlocked = isBlocked;
+    return result;
   } catch (error) {
     console.log(`[SeLoger-Suburbs] Detail fetch failed for ${url}: ${error.message}`);
     if (page) { try { await page.close(); } catch (e) {} }
-    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null };
+    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null, _wasBlocked: true };
   }
 }
 
@@ -220,7 +225,7 @@ async function enrichWithDetails(listings, label) {
     const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
       fetchListingDetails(freshBrowser, listing.url)
     );
-    const blocked = details.filter(d => d.elevator === null && d.balcony === null && d.furnished === null && d.bathroomsFromDetail === null && d.bedroomsFromDetail === null).length;
+    const blocked = details.filter(d => d._wasBlocked).length;
     console.log(`[SeLoger-${label}] Detail enrichment: ${listings.length - blocked}/${listings.length} succeeded, ${blocked} blocked/failed`);
     return listings.map((listing, i) => {
       const d = details[i];
@@ -257,14 +262,14 @@ async function scrapeTown(town, searchType) {
     await page.setDefaultNavigationTimeout(20000);
 
     // Real pagination confirmed live via ?LISTING-LISTpg=N (see
-    // seloger-arrondissements-scraper.js for the full research note).
-    // Capped at 100 listings / MAX_PAGES pages to stay within the
-    // 5-minute job timeout once detail-page enrichment runs on top.
-    const MAX_PAGES = 30;
+    // seloger-arrondissements-scraper.js for the full research note). No
+    // hardcoded page/result cap — same reasoning as the arrondissement
+    // scraper: a fixed cap silently drops real listings in denser towns.
+    // Loop runs until a page yields zero new listings.
     const allParsed = [];
     const seenUrls = new Set();
 
-    for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+    for (let pageNum = 1; ; pageNum++) {
       const distributionType = searchType === 'sale' ? 'Buy' : 'Rent';
       const url = `https://www.seloger.com/classified-search?distributionTypes=${distributionType}&estateTypes=Apartment&locations=${town.geoCode.toUpperCase()}&page=${pageNum}`;
 
@@ -303,7 +308,6 @@ async function scrapeTown(town, searchType) {
       console.log(`[SeLoger-${town.slug}] Page ${pageNum}: ${newCount} new listing(s), ${allParsed.length} total so far`);
 
       if (newCount === 0) break;
-      if (allParsed.length >= 450) break;
     }
 
     const valid = allParsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);

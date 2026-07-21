@@ -152,15 +152,6 @@ async function main() {
   console.log(`Found ${arrFiles.length} SeLoger arrondissement result file(s): ${arrFiles.join(', ') || '(none)'}`);
   console.log(`Found ${parisRentalFiles.length} ParisRental category result file(s): ${parisRentalFiles.join(', ') || '(none)'}`);
 
-  // SeLoger (Paris-wide) moved to its own isolated job (see
-  // scrape-single-seloger.js) after removing its page/result cap - a full
-  // run routinely exceeds combine-sources.js's shared per-source timeout,
-  // so it now runs standalone with its own generous job timeout instead.
-  const selogerMainFilename = searchType === 'sale' ? 'seloger-main-output-sale.json' : 'seloger-main-output.json';
-  const selogerMainPath = path.join(artifactsDir, selogerMainFilename);
-  const selogerMainResult = fs.existsSync(selogerMainPath) ? loadJson(selogerMainPath) : null;
-  console.log(`SeLoger (main) result file: ${fs.existsSync(selogerMainPath) ? selogerMainFilename : '(not found)'}`);
-
   // DanielFeau moved to its own isolated job (see scrape-single-danielfeau.js)
   // after adding real detail-page enrichment - optional here since the job
   // could theoretically fail without blocking the rest of the merge.
@@ -233,23 +224,6 @@ async function main() {
       }
       allSourceStatus.push({ source: label, found: added, error: null });
     }
-  }
-
-  if (selogerMainResult) {
-    if (selogerMainResult.error) {
-      allSourceStatus.push({ source: 'SeLoger', found: 0, error: selogerMainResult.error });
-    } else {
-      let added = 0;
-      for (const listing of selogerMainResult.listings) {
-        if (seenUrls.has(listing.url)) continue;
-        seenUrls.add(listing.url);
-        allListings.push(listing);
-        added++;
-      }
-      allSourceStatus.push({ source: 'SeLoger', found: added, error: null });
-    }
-  } else {
-    allSourceStatus.push({ source: 'SeLoger', found: 0, error: 'Isolated job artifact not found' });
   }
 
   if (danielFeauResult) {

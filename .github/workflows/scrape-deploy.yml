@@ -47,11 +47,16 @@ jobs:
           fi
 
   # Runs Barnes, Barnes-Suburbs, Junot, Book-a-Flat, and Perenium in one
-  # job. SeLoger (Paris-wide) moved to its own isolated job below
-  # (scrape-seloger-main) after its page/result cap was removed — an
-  # uncapped run routinely exceeds combine-sources.js's shared 5-minute
-  # per-source timeout, which would silently discard all its progress
-  # every time inside this shared job.
+  # job. SeLoger (Paris-wide) is deliberately NOT run here or anywhere in
+  # this pipeline: its own page/result cap was removed (uncapped by
+  # design), which made a full run both too slow for any single job
+  # budget AND almost entirely redundant — the 20-way per-arrondissement
+  # matrix below (scrape-seloger-arrondissement) already covers all of
+  # Paris with its own enrichment, in properly parallelized isolated jobs,
+  # without this bottleneck. Confirmed live: a Paris-wide run found 5037
+  # valid rent listings but needed ~3.8 hours just for detail enrichment
+  # at a safe anti-bot concurrency, blowing well past any reasonable job
+  # timeout for what the arrondissement matrix already provides.
   scrape-main:
     needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
@@ -99,66 +104,23 @@ jobs:
           path: output-main-sale.json
           retention-days: 1
 
-  # SeLoger (Paris-wide) in complete isolation, own job, own timeout — no
-  # cap on pages/listings pulled, by design (see seloger-scraper.js). A
-  # generous 45-minute ceiling here since a full uncapped Paris-wide
-  # pagination run (confirmed live: 20+ pages / 500+ listings within just
-  # the first 100 seconds, still climbing) takes meaningfully longer than
-  # the 15-minute budget scrape-main shares with several other sources,
-  # plus detail-page enrichment on every listing found.
-  scrape-seloger-main:
-    needs: check-schedule
-    if: needs.check-schedule.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
-      - name: Scrape SeLoger (Paris-wide) rent in isolation
-        run: node scrape-single-seloger.js rent
-      - name: Upload result
-        uses: actions/upload-artifact@v4
-        with:
-          name: output-seloger-main
-          path: seloger-main-output.json
-          retention-days: 1
-
-  scrape-seloger-main-sale:
-    needs: check-schedule
-    if: needs.check-schedule.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
-      - name: Scrape SeLoger (Paris-wide) sale in isolation
-        run: node scrape-single-seloger.js sale
-      - name: Upload sale result
-        uses: actions/upload-artifact@v4
-        with:
-          name: output-seloger-main-sale
-          path: seloger-main-output-sale.json
-          retention-days: 1
-
   # Each SeLoger suburb town gets its OWN isolated job (own runner, own
   # session) — testing whether SeLoger's anti-bot system is flagging the
   # PATTERN of many distinct location searches within one session, not
   # just request volume. Evidence from single-process testing: search #1-2
   # in a session always succeed, #3+ never do, regardless of concurrency,
   # delay, or browser freshness tried within one process.
+  #
+  # timeout-minutes bumped 30 -> 60: the per-town page/result cap below
+  # was removed after real evidence some Paris arrondissements have 700+
+  # listings (see scrape-seloger-arrondissement) — 60 min gives real
+  # headroom for any town that turns out to be similarly dense, without
+  # needing to know in advance which ones.
   scrape-seloger-suburb:
     needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false # one suburb failing shouldn't cancel the others
       matrix:
@@ -208,7 +170,7 @@ jobs:
     needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -255,11 +217,19 @@ jobs:
   # pagination problem (seloger-scraper.js's own notes: 3 different
   # pagination strategies tried, all failed) by treating each
   # arrondissement as its own single-page "location" search instead.
+  #
+  # timeout-minutes bumped 30 -> 60: the per-arrondissement page/result
+  # cap was removed after real evidence the 15th/16th/17th have 784/706/
+  # 566 listings each (vs the old 450 cap that was silently dropping
+  # ~700 real listings across just those three) — at the observed
+  # detail-enrichment rate, the busiest of those needs ~36-38 min, which
+  # didn't fit in 30. 60 gives real headroom above that, including for
+  # future inventory growth.
   scrape-seloger-arrondissement:
     needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -288,7 +258,7 @@ jobs:
     needs: check-schedule
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -471,7 +441,7 @@ jobs:
   # Downloads every artifact from all eight jobs above, merges everything,
   # and writes/commits the final Excel file.
   merge-and-commit:
-    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-main, scrape-seloger-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale, scrape-danielfeau, scrape-danielfeau-sale, scrape-eiffel-housing, scrape-eiffel-housing-sale]
+    needs: [check-schedule, scrape-main, scrape-main-sale, scrape-seloger-suburb, scrape-seloger-suburb-sale, scrape-seloger-arrondissement, scrape-seloger-arrondissement-sale, scrape-parisrental-page, scrape-parisrental-sale, scrape-danielfeau, scrape-danielfeau-sale, scrape-eiffel-housing, scrape-eiffel-housing-sale]
     if: needs.check-schedule.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8

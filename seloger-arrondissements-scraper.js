@@ -145,7 +145,7 @@ async function fetchListingDetails(browser, url, isRetry = false) {
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
     const bodyText = await page.evaluate(() => {
       const visible = document.body.innerText || '';
@@ -156,18 +156,28 @@ async function fetchListingDetails(browser, url, isRetry = false) {
 
     await page.close();
 
-    // Real evidence found live: a genuine SeLoger listing page always
-    // returns 50,000+ characters. Anything under ~2000 is a DataDome
-    // block/challenge page, not real content.
-    if (bodyText.length < 2000 && !isRetry) {
+    // Real bug found live: checking only bodyText.length missed a whole
+    // class of failures. A genuine 403 block returns instantly with
+    // empty content, and extractDetailFeatures('') on empty text
+    // returns elevator:false/balcony:false (their real defaults) rather
+    // than null - so the old "all fields null = blocked" check never
+    // caught this, silently counting real blocks as "successful, just
+    // nothing to report". Checking the actual HTTP status directly
+    // catches this properly regardless of what the resulting text looks
+    // like.
+    const status = response ? response.status() : null;
+    const isBlocked = status === 403 || status === 429 || bodyText.length < 2000;
+    if (isBlocked && !isRetry) {
       await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
       return fetchListingDetails(browser, url, true);
     }
 
-    return extractDetailFeatures(bodyText);
+    const result = extractDetailFeatures(bodyText);
+    result._wasBlocked = isBlocked; // still blocked even after the retry, or this IS the retry and it's still blocked
+    return result;
   } catch (error) {
     if (page) { try { await page.close(); } catch (e) {} }
-    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null };
+    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null, _wasBlocked: true };
   }
 }
 
@@ -178,7 +188,7 @@ async function enrichWithDetails(listings, label) {
     const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
       fetchListingDetails(freshBrowser, listing.url)
     );
-    const blocked = details.filter(d => d.elevator === null && d.balcony === null && d.furnished === null && d.bathroomsFromDetail === null && d.bedroomsFromDetail === null).length;
+    const blocked = details.filter(d => d._wasBlocked).length;
     console.log(`[SeLoger-${label}] Detail enrichment: ${listings.length - blocked}/${listings.length} succeeded, ${blocked} blocked/failed`);
     return listings.map((listing, i) => {
       const d = details[i];
@@ -213,11 +223,18 @@ async function scrapeArrondissement(arr, searchType) {
     // and the geoCode UPPERCASED — verified across 5 pages returning 144
     // genuinely unique listings (28-30 new per page), not the same
     // content repeated.
-    const MAX_PAGES = 30;
+    //
+    // No hardcoded page/result cap — real evidence found live: the 15th,
+    // 16th, and 17th arrondissements alone have 784/706/566 listings,
+    // well past the 450 this used to cap at, silently dropping ~700 real
+    // listings across just those three. Loop now runs until a page
+    // yields zero new listings (genuinely out of pages) — see the job
+    // timeout bump in scrape-deploy.yml, which now gives enough headroom
+    // for the busiest arrondissements to finish enrichment too.
     const allParsed = [];
     const seenUrls = new Set();
 
-    for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+    for (let pageNum = 1; ; pageNum++) {
       const distributionType = searchType === 'sale' ? 'Buy' : 'Rent';
       const url = `https://www.seloger.com/classified-search?distributionTypes=${distributionType}&estateTypes=Apartment&locations=${arr.geoCode.toUpperCase()}&page=${pageNum}`;
 
@@ -254,7 +271,6 @@ async function scrapeArrondissement(arr, searchType) {
       console.log(`[SeLoger-${arr.slug}] Page ${pageNum}: ${newCount} new listing(s), ${allParsed.length} total so far`);
 
       if (newCount === 0) break; // genuinely reached the end
-      if (allParsed.length >= 450) break; // cap reached
     }
 
     const valid = allParsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
