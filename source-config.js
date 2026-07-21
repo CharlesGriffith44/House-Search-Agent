@@ -59,7 +59,7 @@ const SCRAPER_CONFIG = {
   },
 
   Barnes_Buy: {
-    searchType: 'purchase',
+    searchType: 'sale',
     url: 'https://www.barnes-international.com/en/for-sale/france/paris.html',
     waitForSelector: 'a[href*="/ref-"]',
     nextPageSelector: 'a[href^="javascript:annonces_suivantes"]',
@@ -100,13 +100,13 @@ const SCRAPER_CONFIG = {
   },
 };
 
-// Helper: given a desired searchType ('rent' | 'purchase'), return the
+// Helper: given a desired searchType ('rent' | 'sale'), return the
 // matching Barnes config. Throws rather than silently defaulting — a
 // caller must be explicit, since implicit rent-only was the whole bug.
 function getBarnesConfig(searchType) {
-  const key = searchType === 'purchase' ? 'Barnes_Buy' : searchType === 'rent' ? 'Barnes_Rent' : null;
+  const key = searchType === 'sale' ? 'Barnes_Buy' : searchType === 'rent' ? 'Barnes_Rent' : null;
   if (!key) {
-    throw new Error(`searchType must be 'rent' or 'purchase', got: ${JSON.stringify(searchType)}`);
+    throw new Error(`searchType must be 'rent' or 'sale', got: ${JSON.stringify(searchType)}`);
   }
   return { key, config: SCRAPER_CONFIG[key] };
 }
