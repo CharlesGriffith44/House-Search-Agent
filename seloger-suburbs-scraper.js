@@ -213,21 +213,15 @@ async function fetchListingDetails(browser, url, isRetry = false) {
   }
 }
 
-async function enrichWithDetails(listings) {
+async function enrichWithDetails(listings, label) {
   if (listings.length === 0) return listings;
-  // Real evidence found live (in seloger-arrondissements-scraper.js):
-  // detail-page requests were ALL getting blocked (tiny ~430-character
-  // challenge pages) when reusing the same browser session that had
-  // just finished rapid pagination - the anti-bot system flags the
-  // ENTIRE session, not just detail-page request volume. Launching a
-  // genuinely fresh browser (new cookies/context) specifically for
-  // enrichment fixed this completely - confirmed live across 130+
-  // consecutive successful requests with zero blocks.
   const freshBrowser = await getBrowser();
   try {
     const details = await mapWithConcurrency(listings, DETAIL_FETCH_CONCURRENCY, (listing) =>
       fetchListingDetails(freshBrowser, listing.url)
     );
+    const blocked = details.filter(d => d.elevator === null && d.balcony === null && d.furnished === null && d.bathroomsFromDetail === null && d.bedroomsFromDetail === null).length;
+    console.log(`[SeLoger-${label}] Detail enrichment: ${listings.length - blocked}/${listings.length} succeeded, ${blocked} blocked/failed`);
     return listings.map((listing, i) => {
       const d = details[i];
       const bathrooms = listing.bathrooms != null ? listing.bathrooms : d.bathroomsFromDetail;
@@ -321,7 +315,7 @@ async function scrapeTown(town, searchType) {
     browser = null;
     page = null;
 
-    const enriched = await enrichWithDetails(valid);
+    const enriched = await enrichWithDetails(valid, town.slug);
     return { slug: town.slug, listings: enriched, error: null };
 
   } catch (error) {
