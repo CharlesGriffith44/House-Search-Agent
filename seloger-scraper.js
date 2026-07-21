@@ -1,33 +1,22 @@
 // seloger-scraper.js
-// Production version of the SeLoger scraper — first page only (~31
-// listings). Pagination was attempted via three different strategies
-// (numbered buttons, click-based "next" button, URL parameters) and all
-// three failed for specific, understood reasons — documented below for
-// whoever revisits this later. First-page extraction itself is solid:
-// verified correct across many live runs, zero bot-blocking encountered
-// even under sustained interaction.
+// Production version of the SeLoger scraper — full pagination, both rent
+// and sale.
 //
-// PAGINATION — NOT SOLVED, kept here for whoever picks this back up:
-//   1. Numbered page buttons (1, 2, 3, ...N): the bar shows a FIXED set
-//      that doesn't reveal nearby numbers as you advance — there's no
-//      literal "4" button to find/click after reaching page 3.
-//   2. Icon-only "next" button (aria-label="page suivante"): found and
-//      confirmed correctly targeted (not disabled, not covered by an
-//      overlay after fixing a real click-interception bug), but clicking
-//      it — even with Puppeteer's real mouse click — never advanced the
-//      page. Root cause unconfirmed; the button uses React Aria
-//      (data-react-aria-pressable="true"), which has known quirks around
-//      what counts as a "real" interaction.
-//   3. URL parameter (?LISTING-LISTpg=2): confirmed to exist for a
-//      DIFFERENT SeLoger URL template (/immobilier/achat/...) via
-//      external research, but produced 29/31 overlapping (i.e. not
-//      actually different) results on the /recherche/location/... URL
-//      template used here. Likely template-specific; untested on the
-//      older URL style.
+// PAGINATION: solved via the ?page=N URL parameter on the
+// /classified-search endpoint (distributionTypes=Rent|Buy). Confirmed live
+// that this advances through genuinely different listings (not repeats)
+// across many consecutive pages. No hardcoded page count or result cap —
+// the loop runs until SeLoger itself signals there's nothing left: either
+// a page returns zero NEW listings, or the listing selector times out
+// (no more result pages exist).
 //
-// Given the project's move to scheduled (not live on-demand) scraping,
-// 31 fresh listings per run, twice daily, is a reasonable interim outcome
-// — not exhaustive, but continuously sampling new listings over time.
+// SALE (Buy) is fully wired alongside rent via the same distributionTypes
+// switch — both verified live.
+//
+// Earlier attempts at click-based pagination (numbered page buttons,
+// icon-only "next" button using React Aria) were abandoned after real
+// testing showed they don't reliably advance the page — the URL-param
+// approach below replaced them entirely.
 
 const parseListing = require('./parse-listing');
 const { extractDetailFeatures } = require('./parse-listing');
@@ -160,7 +149,7 @@ async function fetchListingDetails(browser, url, isRetry = false) {
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(20000);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
     const bodyText = await page.evaluate(() => {
       const visible = document.body.innerText || '';
@@ -171,27 +160,33 @@ async function fetchListingDetails(browser, url, isRetry = false) {
 
     await page.close();
 
-    // Real evidence found live: a genuine SeLoger listing page always
-    // returns 50,000+ characters. Anything under ~2000 is a DataDome
-    // block/challenge page - detecting and retrying once after a
-    // longer cooldown recovers many of these.
-    if (bodyText.length < 2000 && !isRetry) {
+    // Real bug found live: checking only bodyText.length missed a whole
+    // class of failures - a genuine 403 block returns instantly with
+    // empty content, and extractDetailFeatures('') on empty text
+    // returns elevator:false/balcony:false (their real defaults) rather
+    // than null, so the old "all fields null" check never caught this.
+    const status = response ? response.status() : null;
+    const isBlocked = status === 403 || status === 429 || bodyText.length < 2000;
+    if (isBlocked && !isRetry) {
       await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
       return fetchListingDetails(browser, url, true);
     }
 
-    return extractDetailFeatures(bodyText);
+    const result = extractDetailFeatures(bodyText);
+    result._wasBlocked = isBlocked;
+    return result;
   } catch (error) {
     console.log(`[SeLoger] Detail fetch failed for ${url}: ${error.message}`);
     if (page) { try { await page.close(); } catch (e) {} }
-    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null };
+    return { elevator: null, balcony: null, furnished: null, bathroomsFromDetail: null, bedroomsFromDetail: null, _wasBlocked: true };
   }
 }
 
 // Enriches parsed listings with detail-page data. Always runs for SeLoger
-// (unlike Barnes, where it's opt-in) since the cost is low: ~30 listings
-// per run here versus Barnes' 100, so this adds roughly 20-40 seconds,
-// not minutes.
+// (unlike Barnes, where it's opt-in). Note: since the page-count cap was
+// removed above, listing volume now scales with however many pages
+// SeLoger actually has for the search, not a fixed ~30 — enrichment time
+// scales accordingly (concurrency-limited, see DETAIL_FETCH_CONCURRENCY).
 async function enrichWithDetails(listings) {
   if (listings.length === 0) return listings;
   // Real evidence found live (in seloger-arrondissements-scraper.js):
@@ -216,7 +211,7 @@ async function enrichWithDetails(listings) {
     });
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    const blocked = details.filter(d => d.elevator === null && d.balcony === null && d.furnished === null && d.bathroomsFromDetail === null && d.bedroomsFromDetail === null).length;
+    const blocked = details.filter(d => d._wasBlocked).length;
     console.log(`[SeLoger] Detail fetch complete in ${elapsed}s: ${listings.length - blocked}/${listings.length} succeeded, ${blocked} blocked/failed`);
 
     return listings.map((listing, i) => {
@@ -244,17 +239,14 @@ async function scrapeSeLoger(searchType = 'rent') {
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'); // fixes 403 blocks from bot-detection checking for the default 'HeadlessChrome' signature (confirmed root cause via live ParisRental testing)
     await page.setDefaultNavigationTimeout(30000);
 
-    // Real pagination confirmed live via ?LISTING-LISTpg=N (see
-    // seloger-arrondissements-scraper.js for the full research note).
-    // MAX_PAGES kept smaller here (8, vs 15 for the isolated
-    // per-arrondissement/suburb jobs) since this runs inside scrape-main,
-    // sharing its 15-minute budget with Barnes and Junot rather than
-    // having its own dedicated 5-minute window.
-    const MAX_PAGES = 15;
+    // Real pagination confirmed live via ?page=N (see
+    // seloger-arrondissements-scraper.js for the full research note). No
+    // hardcoded page ceiling — loop runs until a page yields zero new
+    // listings or the listing selector times out (no more pages).
     const allParsed = [];
     const seenUrls = new Set();
 
-    for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+    for (let pageNum = 1; ; pageNum++) {
       const distributionType = searchType === 'sale' ? 'Buy' : 'Rent';
       const url = `https://www.seloger.com/classified-search?distributionTypes=${distributionType}&estateTypes=Apartment&locations=${PARIS_GEOCODE.toUpperCase()}&page=${pageNum}`;
       console.log(`[SeLoger] Navigating to ${url}`);
@@ -267,7 +259,7 @@ async function scrapeSeLoger(searchType = 'rent') {
       try {
         await page.waitForSelector(getListingSelector(searchType), { timeout: 15000 });
       } catch (e) {
-        console.warn(`[SeLoger] Page ${pageNum}: selector timeout — stopping pagination here.`);
+        console.warn(`[SeLoger] Page ${pageNum}: selector timeout — no more pages, stopping pagination here.`);
         break;
       }
 
@@ -287,7 +279,6 @@ async function scrapeSeLoger(searchType = 'rent') {
       console.log(`[SeLoger] Page ${pageNum}: ${newCount} new listing(s), ${allParsed.length} total so far`);
 
       if (newCount === 0) break;
-      if (allParsed.length >= 100) break;
     }
 
     const valid = allParsed.filter(l => l.price > 0 || l.priceOnRequest || l.address);
