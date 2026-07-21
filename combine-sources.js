@@ -64,7 +64,7 @@ async function runSource(label, promiseFactory, results, sourceStatus) {
 }
 
 async function combineAllSources(searchType = 'rent', options = {}) {
-  const { fetchDetails = false, excludeSeLogerSuburbs = false, excludeParisRental = false, excludeDanielFeau = false, externalListings = [], externalSourceStatus = [] } = options;
+  const { fetchDetails = false, excludeSeLogerSuburbs = false, excludeParisRental = false, excludeDanielFeau = false, excludeEiffelHousing = false, externalListings = [], externalSourceStatus = [] } = options;
   const results = [...externalListings];
   const sourceStatus = [...externalSourceStatus];
 
@@ -105,7 +105,13 @@ async function combineAllSources(searchType = 'rent', options = {}) {
   if (!excludeDanielFeau) {
     await runSource('DanielFeau', () => scrapeDanielFeau(searchType), results, sourceStatus);
   }
-  await runSource('Eiffel Housing', () => scrapeEiffelHousing(searchType), results, sourceStatus);
+  // Eiffel Housing: moved to its own isolated job (like DanielFeau) after
+  // adding real detail-page enrichment - confirmed live that scrape-main
+  // got cancelled at its 15-minute timeout mid-way through Eiffel
+  // Housing's enrichment step, which didn't exist before this session.
+  if (!excludeEiffelHousing) {
+    await runSource('Eiffel Housing', () => scrapeEiffelHousing(searchType), results, sourceStatus);
+  }
 
   return {
     searchType,
