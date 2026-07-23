@@ -334,15 +334,28 @@ function extractDetailFeatures(pageText) {
   const balcony = /\b(balcony|balcon)\b/i.test(text);
 
   // Order matters: "unfurnished" contains "furnished" as a substring.
-  // NOTE: no trailing \b after the accented "é" in meubl[ée] — JS regex's
-  // \b only recognizes ASCII word characters by default, so a trailing \b
+  // NOTE: no trailing \b after the accented "é" in meublé — JS regex's \b
+  // only recognizes ASCII word characters by default, so a trailing \b
   // right after "é" fails to match even on a clean word boundary (same
   // class of bug found earlier in this file with "m²"). Leading \b is
   // fine since it's before an ASCII "m".
+  //
+  // Real false positive found live: the old pattern also accepted the
+  // UNACCENTED "e" (meubl[ée]), which meant it couldn't tell "meublé"/
+  // "meublée" (the adjective, "furnished") apart from "meuble"/"meubles"
+  // (the noun, "a piece of furniture"/"furniture") — and "meubles" shows
+  // up constantly in completely unrelated phrases like "cuisine équipée
+  // avec meubles hauts et bas" (kitchen cabinets), which says nothing
+  // about whether the APARTMENT is furnished. Confirmed live: this
+  // returned furnished:true for text with only a kitchen-cabinets mention
+  // and no actual furnished/unfurnished statement anywhere. Requiring the
+  // accented "é" specifically (how the adjective is actually spelled in
+  // real, professionally-written listings) fixes this without losing any
+  // genuine furnished/meublé mentions.
   let furnished = null;
-  if (/\bunfurnished\b/i.test(text) || /\bnon[\s-]?meubl[ée]/i.test(text)) {
+  if (/\bunfurnished\b/i.test(text) || /\bnon[\s-]?meubl[é]/i.test(text)) {
     furnished = false;
-  } else if (/\bfurnished\b/i.test(text) || /\bmeubl[ée]/i.test(text)) {
+  } else if (/\bfurnished\b/i.test(text) || /\bmeubl[é]/i.test(text)) {
     furnished = true;
   }
 

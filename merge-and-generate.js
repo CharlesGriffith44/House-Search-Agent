@@ -93,9 +93,15 @@ async function buildExcel(searchType, listings, sourceStatus, generatedAtIso) {
       url: l.url
     };
     if (hasDetails) {
-      row.elevator = l.elevator === true ? 'Yes' : l.elevator === false ? 'No' : '';
-      row.balcony = l.balcony === true ? 'Yes' : l.balcony === false ? 'No' : '';
-      row.furnished = l.furnished === true ? 'Yes' : l.furnished === false ? 'No' : '';
+      // 'Not mentioned' rather than a blank cell for null — an empty
+      // cell reads as "we forgot to check", not "the listing never said
+      // either way" (or, for elevator/balcony, "the detail-page fetch
+      // failed entirely" — all three go null together on a failed
+      // fetch). Per explicit request: people scanning the sheet need to
+      // be able to tell "not stated" apart from a real "No".
+      row.elevator = l.elevator === true ? 'Yes' : l.elevator === false ? 'No' : 'Not mentioned';
+      row.balcony = l.balcony === true ? 'Yes' : l.balcony === false ? 'No' : 'Not mentioned';
+      row.furnished = l.furnished === true ? 'Yes' : l.furnished === false ? 'No' : 'Not mentioned';
     }
     const addedRow = sheet.addRow(row);
 

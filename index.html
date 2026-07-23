@@ -304,6 +304,7 @@
 
   .yes { color: var(--green); font-weight: 600; }
   .no { color: #B7AE9C; }
+  .unknown { color: #B7AE9C; font-style: italic; font-size: 0.85em; }
 
   #empty-state {
     display: none;
@@ -556,7 +557,12 @@
   function badgeYesNo(v) {
     if (v === true) return '<span class="yes">Yes</span>';
     if (v === false) return '<span class="no">No</span>';
-    return '<span class="no">—</span>';
+    // null means the listing never stated this one way or the other (or,
+    // for elevator/balcony, the detail-page fetch failed entirely — all
+    // three go null together in that case) — distinct from a real "No",
+    // so it needs to say that rather than an ambiguous dash that reads
+    // the same as "No" at a glance.
+    return '<span class="unknown">Not mentioned</span>';
   }
 
   function render() {
