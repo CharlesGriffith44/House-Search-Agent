@@ -1,0 +1,8 @@
+node_modules/
+output-seloger-*.json
+output-main*.json
+seloger-main-output*.json
+output-danielfeau*.json
+output-eiffel-housing*.json
+output-parisrental*.json
+.DS_Store
